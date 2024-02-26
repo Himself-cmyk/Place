@@ -17,7 +17,7 @@
 
 ## 自动批卦
 
-![image-20240227001644522](img/image-20240227001644522.png)
+![Place/img at main · Himself-cmyk/Place (github.com)](https://github.com/Himself-cmyk/Place/tree/main/img/image-20240227001644522.png)
 
 注意洋红色的指引，点击“排盘”后，通过选择“用神”和“条文”，程序便会替你校对你编写的所有条文(txt文件)，只有符合条文的条件才会输出。
 
