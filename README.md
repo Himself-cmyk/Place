@@ -17,13 +17,13 @@
 
 ## 自动批卦
 
-![自动批卦]([https://thumbnail0.baidupcs.com/thumbnail/8141dedb6i97eb0492d38e09196c4d0a?fid=677921360-250528-986551015070869&time=1708970400&rt=sh&sign=FDTAER-DCb740ccc5511e5e8fedcff06b081203-LPe2ZxUHdmVxV13Os21R5U72E4I%3D&expires=8h&chkv=0&chkbd=0&chkpc=&dp-logid=171262702158674350&dp-callid=0&file_type=0&size=c710_u400&quality=100&vuk=-&ft=video](https://thumbnail0.baidupcs.com/thumbnail/6a1575dfdtf4da9e285f2908a354d687?fid=677921360-250528-1115973718549186&time=1708970400&rt=sh&sign=FDTAER-DCb740ccc5511e5e8fedcff06b081203-1lNQkURRH1CYb%2FQdDBp%2Bh%2BSWSkM%3D&expires=8h&chkv=0&chkbd=0&chkpc=&dp-logid=171297550149249972&dp-callid=0&file_type=0&size=c710_u400&quality=100&vuk=-&ft=video)https://thumbnail0.baidupcs.com/thumbnail/6a1575dfdtf4da9e285f2908a354d687?fid=677921360-250528-1115973718549186&time=1708970400&rt=sh&sign=FDTAER-DCb740ccc5511e5e8fedcff06b081203-1lNQkURRH1CYb%2FQdDBp%2Bh%2BSWSkM%3D&expires=8h&chkv=0&chkbd=0&chkpc=&dp-logid=171297550149249972&dp-callid=0&file_type=0&size=c710_u400&quality=100&vuk=-&ft=video)
+![自动批卦](https://thumbnail0.baidupcs.com/thumbnail/8141dedb6i97eb0492d38e09196c4d0a?fid=677921360-250528-986551015070869&time=1708970400&rt=sh&sign=FDTAER-DCb740ccc5511e5e8fedcff06b081203-LPe2ZxUHdmVxV13Os21R5U72E4I%3D&expires=8h&chkv=0&chkbd=0&chkpc=&dp-logid=171325236976343902&dp-callid=0&file_type=0&size=c710_u400&quality=100&vuk=-&ft=video)
 
 
 注意洋红色的指引，点击“排盘”后，通过选择“用神”和“条文”，程序便会替你校对你编写的所有条文(txt文件)，只有符合条文的条件才会输出。
 
 ## 卦象备注 
 
-![卦象备注]()
+![卦象备注](https://thumbnail0.baidupcs.com/thumbnail/6a1575dfdtf4da9e285f2908a354d687?fid=677921360-250528-1115973718549186&time=1708970400&rt=sh&sign=FDTAER-DCb740ccc5511e5e8fedcff06b081203-1lNQkURRH1CYb%2FQdDBp%2Bh%2BSWSkM%3D&expires=8h&chkv=0&chkbd=0&chkpc=&dp-logid=171297550149249972&dp-callid=0&file_type=0&size=c710_u400&quality=100&vuk=-&ft=video)
 
 编辑此处，以后排卦碰到符合条件（月日卦）的卦象，将会输出你编辑的信息。
