@@ -2,7 +2,7 @@ import csv
 import os
 import re
 from place_addition import GUA_NAME, GAN, ZHI
-from constants import GUA_SHU
+from constants import GUA_SHU, Sixmode_to_Animals
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTextEdit, QPushButton, QVBoxLayout, QWidget, QComboBox, QLabel, \
     QGridLayout
 from PyQt5.QtCore import Qt
@@ -12,7 +12,6 @@ LIU_QIN_NUM_60 = [[36, 37, 14, 51, 52, 17, 6, 7, 20, 33, 34, 23], [12, 13, 50, 2
                   [24, 25, 2, 39, 40, 5, 54, 55, 8, 21, 22, 11]]
 LIU_QIN = ['父母', '兄弟', '子孙', '妻财', '官鬼']
 yao_wei = ['六爻', '五爻', '四爻', '三爻', '二爻', '初爻']
-animals = ["青龙", "朱雀", "勾陈", "腾蛇", "白虎", "玄武"]
 卦宫 = [string for string in '乾震坎巽艮坤离兑']
 卦宫五行 = [string for string in '土水火木金']
 
@@ -81,7 +80,7 @@ round_12_brif = {'长生': '长', '沐浴': '沐', '冠带': '冠', '临官': '�
 
 返卦 = ['乾', '坎', '艮', '艮', '震', '巽', '巽', '离', '坤', '坤', '兑', '乾']
 
-Family = ['父母亥水', '父母子水', '父母丑土', '父母寅木', '父母卯木', '父母辰土', '父母巳火', '父母午火', '父母未土',
+FAMILY = ['父母亥水', '父母子水', '父母丑土', '父母寅木', '父母卯木', '父母辰土', '父母巳火', '父母午火', '父母未土',
           '父母申金', '父母酉金', '父母戌土', '兄弟亥水', '兄弟子水', '兄弟丑土', '兄弟寅木', '兄弟卯木', '兄弟辰土',
           '兄弟巳火', '兄弟午火', '兄弟未土', '兄弟申金', '兄弟酉金', '兄弟戌土', '子孙亥水', '子孙子水', '子孙丑土',
           '子孙寅木', '子孙卯木', '子孙辰土', '子孙巳火', '子孙午火', '子孙未土', '子孙申金', '子孙酉金', '子孙戌土',
@@ -133,7 +132,6 @@ class AnalyModel:
     def __init__(self, TimeList: list[int], empty_str: str, CoinsInfoList, OtherList):
         # 需要什么用什么，自助；不用自己去算
         # coinsNumber_list是(六五四三二初)
-        self.window = None
         self.rigan, self.month, self.date, self.yearg, self.yearz, self.hour = TimeList
         self.gua_num, self.biangua_num, self.coinsNumber_list = CoinsInfoList
         self.WuXing, self.SixMode, self.mingyao, self.yongshen = OtherList
@@ -145,6 +143,15 @@ class AnalyModel:
 
         from constants import gua_info_list_calculate, search_self
         self.self_posit, self.other_posit = search_self(self.gua_num)  # 爻位1-6
+        self.GuaShu_li = gua_info_list_calculate(self.gua_num, self.biangua_num, self.trigger_li)
+        # self.GuaShu_li：18位数组，顺序是Main，After，Hide
+
+        from GIDCoreCode import GuaImageEditor
+        GuaImageDict = self.DF_output()
+        self.GuaImageData = GuaImageEditor(GuaImageDict).edit_process()
+
+        # function for PC
+        self.window = None
         _inner, _out = tuple(self.coinsNumber_list[3:]), tuple(self.coinsNumber_list[:3])
         up_idx, down_idx = HalfGua_TO_IDX[_out], HalfGua_TO_IDX[_inner]
         self.out, self.inner = HalfGua_TO_NAME[_out], HalfGua_TO_NAME[_inner]
@@ -168,13 +175,6 @@ class AnalyModel:
         if tp:
             self.cell_params.append(tp)
 
-        self.GuaShu_li = gua_info_list_calculate(self.gua_num, self.biangua_num, self.trigger_li)
-        # self.GuaShu_li：18位数组，顺序是Main，After，Hide
-
-        from GIDCoreCode import GuaImageEditor
-        GuaImageDict = self.DF_output()
-        self.GuaImageData = GuaImageEditor(GuaImageDict).edit_process()
-
     def 主要信息接口(self, TextFile):
         """
         :param TextFile: 知识库txt的路径。该txt文件按照一定的规范书写。
@@ -185,6 +185,8 @@ class AnalyModel:
                    self.self_posit, self.other_posit, self.SixMode, self.yongshen]
         self.转机器语言工具 = ConvertTextToCode(self.GuaImageData, time, guainfo, TextFile)
         # print(self.GuaImageData)
+
+    '''function for PC'''
 
     def text_output_func(self):
         """
@@ -241,6 +243,8 @@ class AnalyModel:
         for sentence in articles:
             print(sentence)
 
+    '''general function'''
+
     def active_lst(self):
         # 输出词典的基本样式
         at_lst = []
@@ -255,16 +259,13 @@ class AnalyModel:
                 at_lst.append((i, num))  # 记录（爻位idx，60六亲数***）
         return at_lst
 
-    def self_other_ps(self):
-        self_other_lst = [''] * 18  # 18位None的世应占位
-        if (s_num := self.self_posit) < (o_num := self.other_posit):
-            for i in range(s_num, s_num + 4):
-                li = [string for string in '世间间应']
-                self_other_lst[i] = li[i - s_num]
-        else:
-            for i in range(o_num, o_num + 4):
-                li = [string for string in '应间间世']
-                self_other_lst[i] = li[i - o_num]
+    def self_other_ps(self, skip=False):
+        self_other_lst = [''] * 18
+        self_other_lst[self.self_posit] = '世'
+        self_other_lst[self.other_posit] = '应'
+        if not skip:
+            max_num = max(self.self_posit, self.other_posit)
+            self_other_lst[max_num - 2], self_other_lst[max_num - 1] = '间', '间'
         return self_other_lst
 
     def DF_output(self):
@@ -300,7 +301,7 @@ class AnalyModel:
 
         def yao_info(wx_int, zhi_int):
             Num = LIU_QIN_NUM_60[wx_int][zhi_int % 12]
-            yao = Family[Num]
+            yao = FAMILY[Num]
             return [Num, yao[:2], yao[2], yao[3]]
 
         for i, num in enumerate(self.GuaShu_li):
@@ -338,7 +339,7 @@ class AnalyModel:
                         GuaImageDict[str(3 * idx + 2)].append(长生_60[Number][lq_str])
 
         for (yao_xu, Num, name) in [(18, Month, '月建'), (19, Date, '日辰')]:
-            yao = Family[Num]
+            yao = FAMILY[Num]
             dic = {'爻序': yao_xu, '六神': name, '六亲': yao[:2], '支': yao[2], '五行': yao[3], '返卦': 返卦[Num % 12],
                    '60六亲': Num}
             for key, value in GuaImageDict.items():
@@ -350,7 +351,7 @@ class AnalyModel:
         return GuaImageDict
 
     def 十二宫(self):
-        return [Family[num] for num in LIU_QIN_NUM_60[self.WuXing]]
+        return [FAMILY[num] for num in LIU_QIN_NUM_60[self.WuXing]]
 
 
 '''Part 02 : 六爻术语文本转机器语言 '''
@@ -361,15 +362,16 @@ class AnalyModel:
 # 能够识别的动作: string,as well as col_name of information table,key of 'self.GuaImageDict'
 # 上下文的概念: 妻财伏藏，飞神 父母？妻财 化墓 在子孙？子孙在哪判定？。write down as 'self.Memory_idx'
 class ConvertTextToCode:
-
     def __init__(self, GuaImageDict=None, time=None, guainfo=None, TextFilePath=''):
 
-        self.debug = False
         self.Memory_idx = None
+        self.former_idxlst = None
         self.line_belong = None  # 重要，否则，条文无序
         self.last_idx_group = None
         self.save_idx_lst = []
-        self.current_file_path, self.appendix_set = '', []
+        self.current_file_path, self.suffix_set = '', []
+        self.platform = 'PC'  # 'Android' if isAndroid() else
+        # self.debug = False
 
         if not guainfo or not time or not GuaImageDict:
             print('重要数值为空')
@@ -385,12 +387,11 @@ class ConvertTextToCode:
         self.biangua_num = self.gua_num if self.biangua_num > 63 else self.biangua_num
 
         # 传入条文集txt的文件路径
-        self.断语词典 = self.源文本处理(TextFilePath)  # requirement:需要上文的'self.yongshen'，不要打乱上下文顺序！
-        # self.self_posit, self.other_posit = 6 - self.self_posit, 6 - self.other_posit  # 原本是1-6代表初爻到六爻
+        self.断语词典: list[dict] = self.源文本处理(TextFilePath)  # requirement:需要上文的'self.yongshen'，不要打乱上下文顺序！
         num = min(self.self_posit, self.other_posit)
         lst = self.GuaImageDict['爻序']
-        self.暂存箱 = {
-            '逢冲': self.冲用神(), '动墓': [],
+        self.暂存箱 = {  # 储存obj:[idx]
+            '动墓': [],
             '应爻': [self.other_posit], '间爻': list(range(num + 1, num + 3)),
             '*': list(range(6)), '**': list(range(len(self.GuaImageDict['支']))),
             '动爻化出': [lst.index(i + 6) for i in range(6) if self.trigger_li[i]],
@@ -402,7 +403,8 @@ class ConvertTextToCode:
             '二爻化出': [lst.index(10)] if self.trigger_li[4] else [],
             '初爻化出': [lst.index(11)] if self.trigger_li[5] else [],
             '变爻两现': find_duplicates(self.GuaImageDict['支'], lst),
-            '伏神': [i for i, n in enumerate(lst) if 12 <= n < 18],  # 筛选爻序（0-17），得到对应的idx
+            '伏神': self.伏神(),
+            '变爻': self.伏神(12, 6),
             '动爻': [i for i, num in enumerate(self.trigger_li) if num],
             '静爻': [i for i, num in enumerate(self.trigger_li) if num == 0]
         }
@@ -435,8 +437,8 @@ class ConvertTextToCode:
         # 每一个列名，都是 self.GuaImageDict 中的键，也是 信息表格（计算明细） 的 列名
         # When you search a cell in message_table,you need row:idx and column_name,using in this way:self.GuaImageDict[column_name][idx]
 
-        selfzhi = self.GuaImageDict['支'][self.self_posit]
-        otherliuqin = self.GuaImageDict['六亲'][self.other_posit]
+        self_zhi = self.GuaImageDict['支'][self.self_posit]
+        other_zhi = self.GuaImageDict['支'][self.other_posit]
         self.convert_string = {
             '外部函数': {  # '合世': [self.self_posit, '合', 冲合值], '冲世': [self.self_posit, '冲', 冲合值],
                 # '合应': [self.other_posit, '合', 冲合值], '冲应': [self.other_posit, '冲', 冲合值],
@@ -445,8 +447,8 @@ class ConvertTextToCode:
             },
             '变爻行标志': {'化空亡': ['空亡', '空亡'], '化月破': ['月合', '冲'], '化月合': ['月合', '合'],
                            '化日冲': ['日合', '冲'], '化日合': ['日合', '合'],
-                           '化日辰': ['日合', '值'], '化出世爻': ['支', selfzhi],
-                           '化出应爻': ['六亲', otherliuqin], '化父母': ['六亲', '父母'], '化兄弟': ['六亲', '兄弟'],
+                           '化日辰': ['日合', '值'], '化出世爻': ['支', self_zhi],
+                           '化出应爻': ['支', other_zhi], '化父母': ['六亲', '父母'], '化兄弟': ['六亲', '兄弟'],
                            '化子孙': ['六亲', '子孙'], '化妻财': ['六亲', '妻财'], '化官鬼': ['六亲', '官鬼'], },
             '动爻列标志': {'动爻生': [active_columns, '生'], '动爻克': [active_columns, '克'],
                            '动爻冲': [active_columns_1, '冲'], '动爻合': [active_columns_1, '合'],
@@ -498,11 +500,12 @@ class ConvertTextToCode:
                 '暗动': ['发动', '暗动'], '安静': ['发动', None],
                 '持世': ['世应', '世'], '临应': ['世应', '应'], '间爻': ['世应', '间']},
         }
-        self.暂存箱.update(self.self_vary_IdxSet())
-        self.暂存箱.update(self.one_vary_IdxSet(active_columns_1))
-        # struction is two parts:{'obj':idx_list,idx:{'string':True}}
-        # print(self.暂存箱)
-        self.查条文()  # 自带打印
+        self.add_idxlst()  # update self.暂存箱
+        self.查条文()  # 自带打印；查条纹之后，update self.暂存箱，新增了很多内容；struction is two parts:{'obj':idx_list,idx:{'string':True}}
+        # for key, value in self.暂存箱.items():
+        #     if not value:
+        #         continue
+        #     print(key, value)
 
     def OtherImforation(self):
         outer, inner = self.coinsNumber_list[:3], self.coinsNumber_list[3:]
@@ -546,12 +549,14 @@ class ConvertTextToCode:
         # example:'日主 丙',this one to one;'外卦 巽/化艮/巽化艮/反吟',this one to more
 
     @staticmethod
-    def readText_removeComments(textfile):
-        if textfile.endswith('.txt'):
+    def readText_removeComments(textfile, platform='PC'):
+        if platform == 'PC' and textfile.endswith('.txt'):
             with open(textfile, 'r', encoding='utf-8') as f:
                 bigtext = f.read()
+        elif platform == 'Android' and isinstance(textfile, str):
+            bigtext = textfile
         else:
-            bigtext = textfile  # 定位 为何这么设计？？
+            return ''
 
         pattern = r"(/\*.*?\*/|//.*?$)"
         regex = re.compile(pattern, re.MULTILINE | re.DOTALL)
@@ -576,15 +581,13 @@ class ConvertTextToCode:
                 bigtext = bigtext.replace(k, v)
         return bigtext
 
-    def 源文本处理(self, textfile):
+    def 源文本处理(self, textfile) -> list[dict]:
         '''
-                    源文本处理：
-                    传入六爻代码文本，返回词典示例：
-                    [
-                        {'断语1': [['官鬼', '月扶', '空亡'], ['子孙伏藏']]},
-                        {'断语2': [['官鬼变爻', '月建', '空亡']]}
-                    ]
-
+        传入六爻代码文本，返回词典示例：
+        [
+            {'断语1': [['官鬼', '月扶', '空亡'], ['子孙伏藏']]},
+            {'断语2': [['官鬼化出', '月建', '空亡']]}
+        ]
         能够支持的文本逻辑：
         obj：详见代码
         string：A或B或C
@@ -594,7 +597,7 @@ class ConvertTextToCode:
 
         # 按句分割文本
 
-        bigtext = self.readText_removeComments(textfile)  # 移除注释
+        bigtext = self.readText_removeComments(textfile, self.platform)  # 移除注释
         bigtext = self.替代用神(self.yongshen, bigtext)
 
         articles = bigtext.split('。')
@@ -637,12 +640,12 @@ class ConvertTextToCode:
     def 词典反编译(dic):
         result = ""
 
-        for key, bi_list in dic.items():
+        for key, nested_lst in dic.items():  # key:list[list[str]]
             string = '·'
-            for condition in bi_list:
-                bi_str = ' '.join(condition).strip()  # 避免牵扯到换行符
-                string += bi_str + '，'
-            result += f"{string[:-1]}：\n{key.strip()}\n"
+            for condition in nested_lst:
+                sentence = ' '.join(condition).strip()  # 避免牵扯到换行符
+                string += sentence + '，'
+            result += f"{string[:-1]}：\n{key.strip()}\n"  # 截去最后的，| key通常是一个“结论”，“断语”
 
         return result
 
@@ -653,17 +656,15 @@ class ConvertTextToCode:
             print("断语词典为空")
             return None
         for dic in self.断语词典:
-            # 取出一对断语、条件
+            # 取出一对断语、条件，识别条件。条件为真，放进箩筐。属于第几行，放进几号筐。
             for saying, condition_dic in dic.items():
-                # 识别条件。条件为真，放进箩筐
                 # print("·【断语和词典】", saying, condition_dic)  # 查看总的断语
                 self.line_belong = None
                 if self.句子识别(condition_dic):
-
                     # 在此处替换saying，【bug】puzzle:replace '[逢冲逢值]' by class's element   定位
-                    if self.appendix_set:
-                        saying += '\n# ' + "\n# ".join(set(self.appendix_set))
-                        self.appendix_set = []
+                    if self.suffix_set:
+                        saying += '\n# ' + "\n# ".join(set(self.suffix_set))
+                        self.suffix_set = []
                         condition_dic = [[n for n in lst if not n.startswith('%')] for lst in condition_dic]
 
                     if self.line_belong is None:
@@ -678,10 +679,10 @@ class ConvertTextToCode:
                 print(ResulText)
             # return ResulText
 
-    def 句子识别(self, 嵌套列表=[]):
+    def 句子识别(self, nested_lst: list[list[str]] = None) -> bool:
         """
         功能：正常检查token；有以“或”开头的，分组器工作，分组检查token
-        :param 嵌套列表:  形如 nested_list = [
+        :param nested_lst:  形如 nested_list = [
              ["A", "B", "C"],
              ["或D", "E"],
              ["或", "F", "G"],
@@ -701,24 +702,24 @@ class ConvertTextToCode:
                 else:
                     yield group_list[or_index:or_list[i + 1]]
 
-        if any([li[0].startswith("或") for li in 嵌套列表]):
-            或的索引列表 = [i for i, li in enumerate(嵌套列表) if li[0].startswith("或")]
+        if any([li[0].startswith("或") for li in nested_lst]):
+            或的索引列表 = [i for i, li in enumerate(nested_lst) if li[0].startswith("或")]
             # 如果存在以“或”开头的，触发分类
-            genator = 生成器分组(或的索引列表, 嵌套列表)
+            genator = 生成器分组(或的索引列表, nested_lst)
             for group_list in genator:
                 if all(self.动作识别(li) for li in group_list):
                     return True
             self.line_belong = None
             return False
         else:
-            if all(self.动作识别(li) for li in 嵌套列表):
+            if all(self.动作识别(li) for li in nested_lst):
                 # 嵌套列表：[[obj_1,verb,verb,],[obj_2,verb,verb,],[obj,verb,verb,],...]     li：[obj,verb,verb,]
                 return True
             else:
                 self.line_belong = None
                 return False
 
-    def 动作识别(self, condition_section: list):  # condition_section：[obj,verb,verb,]
+    def 动作识别(self, condition_section: list[str]) -> bool:  # condition_section：[obj,verb,verb,]
 
         # 传入condition_section；返回idx列表，condition_section
         # 识别obj，筛选的verb。剔除筛选的verb。
@@ -731,9 +732,6 @@ class ConvertTextToCode:
             # obj_idx_list is True，提前跳出函数，返回True或False。仅有两个词的【短句子】。
             # 如果 condition_section 长度小于2，下文无法做判断。既然 obj_idx_list 非空，
             return True
-
-        if self.debug:
-            print(f"〇 condition_section: {condition_section}")
 
         # if '移神' in condition_section: condition_section = [i for i in condition_section if i != '移神']; check = False
         # else:    check = True  # 防止被筛选掉
@@ -749,13 +747,13 @@ class ConvertTextToCode:
                 else:
                     return False
             elif string.startswith('%'):  # 定位亥月癸巳日火天大有天雷无妄
-                condition_lst = [True]
+                condition_lst = [True]  # 写这一段目的是什么？
                 if string == '%':
                     self.save_idx_lst.extend(obj_idx_list)
                 else:
                     obj_idx_list += self.save_idx_lst
                     self.save_idx_lst = []
-                    self.edit_appendix(string, obj_idx_list)  # 运算之后赋值类属性【已加工】
+                    self.add_suggestion_suffix(string, obj_idx_list)  # 运算之后赋值类属性【已加工】
 
             else:  # A，不带或字
                 # obj_idx_list多元素的情况：遍历每个元素，只要有一个True即可，any
@@ -772,13 +770,32 @@ class ConvertTextToCode:
                 # 新改的代码，根据对错，调节obj_idx_list
 
         # for 循环每一个单词都过关了，才能return True
+        # if self.debug:
+        #     print(f"〇 condition_section: {condition_section}")
         # if condition_section[1] == '五爻':
         #     pass
         if not self.line_belong:
             self.line_belong = self.GuaImageDict["爻序"][obj_idx_list[0]] % 6
         return True
 
-    def 对象识别(self, condition_section):
+    def isTargetYao(self, YaoType: str, idx=None) -> bool:
+        if idx == None:  # 你是不是想改成 not idx？这可不行，0是可以进函数的。
+            idx = self.former_idxlst[0]
+        yao_xu_lst = self.GuaImageDict['爻序']
+        if YaoType == '变爻':
+            condition = 5 < yao_xu_lst[idx] < 12 and yao_xu_lst[idx] - 6 in yao_xu_lst
+        elif YaoType == '动爻':
+            condition = yao_xu_lst[idx] < 6 and yao_xu_lst[idx] + 6 in yao_xu_lst
+        elif YaoType == '伏神':
+            condition = 12 < yao_xu_lst[idx] < 18
+        elif YaoType == '主卦':
+            condition = 0 <= idx < 6
+        else:
+            condition = False
+            print('isTargetYao 进了一个不能识别的：', YaoType)
+        return condition
+
+    def 对象识别(self, condition_section) -> tuple[list[int], list[str]]:
         '''
         找到obj_lst，再根据上下文调整condition_section
         :param condition_section:
@@ -789,6 +806,7 @@ class ConvertTextToCode:
         else:
             obj, verb_1, verb_2 = condition_section + [None] * (3 - len(condition_section))  # 考虑下文
 
+        # 主语obj 带有”或“字，需要分割
         if '或' in obj:
             if obj.startswith('或'):  # 不能带“或”字开头
                 obj = obj[1:]
@@ -814,30 +832,40 @@ class ConvertTextToCode:
                     print('这一条写的有问题：', ConditionSection, '结果是：', lst)
             return IdxList, ConditionSection
 
+        def check_former_idx():
+            if not self.former_idxlst:  # 与前文所提及的 主语obj 密切相关
+                return []
+
+            idx = self.former_idxlst[0]
+            lst = self.GuaImageDict['爻序']
+            idx_lst = []
+
+            if obj == '入卦':  # 变爻（爻序）
+                idx_lst = self.主卦六亲索引(self.GuaImageDict['六亲'][idx]) if self.isTargetYao(
+                    '变爻') else []
+            elif obj == '此动爻':
+                idx_lst = [lst.index(lst[idx] - 6)] if self.isTargetYao('变爻') else []
+            elif obj == '化出':
+                idx_lst = [lst.index(lst[idx] + 6)] if self.isTargetYao('动爻') else []
+            elif obj == '飞神':
+                idx_lst = [lst[idx] % 6] if self.isTargetYao('伏神') else []
+            elif obj == '飞神化出':
+                cond = self.isTargetYao('伏神') and self.isTargetYao('动爻', lst[idx] % 6)
+                idx_lst = [lst.index(lst[idx] - 6)] if cond else []
+            return idx_lst
+
         if obj in self.暂存箱:
-            idx_list = self.暂存箱[obj]  # idx_list:List[int]
+            idx_list = self.暂存箱[obj]
             # current:take it out
             # puzzle:some place is up to memory, cannot use 'self.暂存箱[obj] = idx_list' to add to 'self.暂存箱[obj]',
             # solution:this case 'cannot add' can be the following 'elif' ,the case need to add in else (unsure be another loop)
 
-        elif obj in ['墓库', '此动爻', '化出']:
-            idx_list = [self.Memory_idx]
+        elif obj in ['墓库', '该爻']:
+            idx_list = [self.Memory_idx] if self.Memory_idx else []
+        elif obj in ['此动爻', '入卦', '化出', '飞神', '飞神化出']:
+            idx_list = check_former_idx()
         elif obj in ['三合局', '半合局', '三刑']:
             idx_list = self.last_idx_group
-        elif obj == '飞神化出':
-            # condition:exist not None,main_gua,trigger
-            idx_list = []
-            if isinstance(self.Memory_idx, int) and self.Memory_idx < 6 and self.trigger_li[self.Memory_idx]:
-                idx_list = [self.GuaImageDict['爻序'].index(self.Memory_idx + 6)]
-        elif obj == '飞神':  # 【bug】伏神呢？
-            # when '伏藏' idx_list's len is 2,'飞神' is not a fixed value.
-            # idx_list's len's range is [0,1,2]
-            if isinstance(self.Memory_idx, int) and self.Memory_idx in range(6):
-                idx_list = [self.Memory_idx]
-            else:
-                idx_list = []
-                print(f'“飞神”之前没有提及“伏藏”！\n【上文的idx】{self.Memory_idx}\n【原文】{"-".join(condition_section)}')
-
         elif obj in self.GuaInfo:
             '''
             it is already a 暂存箱 ,can directly access and not necessary to save once again!
@@ -869,18 +897,12 @@ class ConvertTextToCode:
 
             elif obj in self.lines_animals:
                 idx_list = [self.lines_animals[obj]]  # example: 二爻 生世；朱雀 发动
-            elif obj in '子丑寅卯辰巳午未申酉戌亥':
-                idx_list = self.idx_set(obj, '支')
-            elif obj in '金木水火土':
-                idx_list = self.idx_set(obj, '五行')
+            elif obj in '子丑寅卯辰巳午未申酉戌亥|金木水火土':
+                idx_list = self.idx_set(obj)
 
             elif obj in ['父母伏藏', '兄弟伏藏', '子孙伏藏', '妻财伏藏', '官鬼伏藏']:
                 # using two chars find out 'idx_list',such as : [14],List[int]
                 idx_list = self.伏藏索引(obj[:2])
-                if idx_list:
-                    self.Memory_idx = self.GuaImageDict['爻序'][idx_list[0]] % 6
-                    # this enable to use 'obj' in 'sentence' like '飞神' or '飞神化出' by accessing 'self.Memory_idx'
-                    # want more,just add 'if condition'
 
             elif obj in ['父母化出', '兄弟化出', '子孙化出', '妻财化出', '官鬼化出']:
                 idx_list = self.变爻索引(obj[:2])
@@ -893,9 +915,8 @@ class ConvertTextToCode:
                 if not verb_1:  # 没有下文【verb】就返回对错
                     return True, condition_section
             elif obj in '月建|日辰':
-                dic = {'日辰': [-1], '月建': [-2]}
-                idx_list = dic[obj]
-
+                idx_dic = {'日辰': [-1], '月建': [-2]}
+                idx_list = idx_dic[obj]
 
             else:
                 # the case can't identify,must return right now...
@@ -904,15 +925,17 @@ class ConvertTextToCode:
 
             self.暂存箱[obj] = idx_list
 
-        if '持世' in verb_li:  # 对‘伏藏持世’优化
+        if '持世' in verb_li:  # 对‘伏神持世’优化
             idx_list = [n for n in idx_list if n < 6]
 
         if verb_li:
             idx_list, condition_section = filter_and_drop(idx_list, condition_section)
 
+        self.former_idxlst = idx_list  # 记住前一个obj[new]
+
         return idx_list, condition_section
 
-    def select_cell(self, idx, string, add_to_memory=True, condition=False):
+    def select_cell(self, idx: int, string: str, add_to_memory=True, condition=False) -> bool:
         """
         检查单元格：选择一个单元格，判断是不是
         实现一次对错判断。并且利用记忆化搜索，尽量保证不再判断第二次。
@@ -921,8 +944,8 @@ class ConvertTextToCode:
         :param add_to_memory:是否加入记忆，方便记忆化搜索？
         :return: True|False，完成一次对错判断
         """
-        if isinstance(idx, list):
-            print(idx, '类型为list')
+        if not isinstance(idx, int):
+            print(idx, string, '★★★★ 此处有误，类型为', type(idx))
         if idx not in self.暂存箱:  # 若“暂存箱”没有 键idx的记录，则创建
             self.暂存箱[idx] = {}
         elif string in self.暂存箱[idx]:  # 若“暂存箱”已有 键idx、string的记录，则利用
@@ -966,8 +989,7 @@ class ConvertTextToCode:
             妻财持世 回头克    pure_posi<6     【注】pure_posi 两种范围 代表 主卦和伏藏，is valid_line_range
             '''
             col_range, value = self.convert_string['动爻列标志'][string]
-            pure_posi = self.GuaImageDict['爻序'][idx]  # 18行的真实位置:pure_posi,表格的真实索引:idx
-            if 6 <= pure_posi < 12 or col_range == []:  # valid_line_range:主卦和伏藏;自检测：list:[key]非空
+            if self.isTargetYao('变爻', idx) or col_range == []:  # valid_line_range:主卦和伏藏;自检测：list:[key]非空
                 self.暂存箱[idx][string] = False
                 return False
             for col in col_range:
@@ -979,31 +1001,13 @@ class ConvertTextToCode:
                 self.vary_mort_IdxSet(idx)
 
         elif string in '阴阳':
-            if idx >= 6:
+            if self.isTargetYao('伏神', idx):
                 return False
             string_map = {0: '阴', 1: '阳'}
             condition = string == string_map[self.coinsNumber_list[idx] % 2]
 
         elif string in ['三合局', '半合局', '外三合局']:
             condition = self.find_sanhe(idx, string)
-
-            '''这部分和上文提及的idx有关，声明不加入记忆'''
-        elif string in self.convert_string['在爻位']:
-            key, value = self.convert_string['在爻位'][string]
-            condition = self.GuaImageDict[key][self.Memory_idx] % 6 == value
-            add_to_memory = False
-        elif string == '续':
-            lst = self.GuaImageDict['爻序']  # example:动爻化出 冲世 续，此动爻 %物象（）
-            condition1 = 5 < lst[idx] < 12 and lst[idx] - 6 in lst
-            condition2 = lst[idx] < 6 and lst[idx] + 6 in lst
-            # idx转为真实的爻序lst[idx]，动爻(0-5)对应的变爻(6-11)，再返回idx。 为了续上上一句的主语
-            self.暂存箱['此动爻'] = [lst.index(lst[idx] - 6)] if condition1 else []
-            self.暂存箱['入卦'] = self.主卦六亲索引(
-                self.GuaImageDict['六亲'][idx]) if condition1 else []  # 原来的idx(6-11)#
-            self.暂存箱['化出'] = [lst.index(lst[idx] + 6)] if condition2 else []
-
-            condition = any([condition1, condition2])
-            add_to_memory = False
 
         else:  # 这些都是通过查询GID（比对dict的key，idx对应的值 == value？）实现判断
 
@@ -1070,7 +1074,7 @@ class ConvertTextToCode:
                 else:
                     print(string, f'其中的【{string[1:]}】是不规范的字符！注：冲世|合世|冲应|合应')
 
-            elif string[:2] in '父母|兄弟|子孙|妻财|官鬼|世爻|应爻' and string[2:] in round_12_brif:
+            elif string[:2] in '父母|兄弟|子孙|妻财|官鬼|世爻|应爻' and string[2:] in round_12_brif:  # 查询 长生十二长生状态
                 key, value = f'{string[:2]}地', string
 
             elif string in convert_string_alive['行列重置']:  # extend_type.大规模 调整 idx, key, value
@@ -1087,6 +1091,8 @@ class ConvertTextToCode:
 
             try:  # 因为不知道用户会输入什么奇怪的字符
                 condition = self.GuaImageDict[key][idx] == value
+            except TypeError:
+                print(self.tmp, key, idx, '\n※    这里有一个类型错误！')
             except UnboundLocalError:
                 print("※    未能识别的字符串:", string, "\n※    当前表格行:", idx, "\n※    完整句子:", self.tmp)
 
@@ -1097,31 +1103,64 @@ class ConvertTextToCode:
 
     '''all the following fuction is zombie,seldom raise error'''
 
-    def 主卦六亲索引(self, 主卦六亲: str):
+    def idx_set(self, obj: str) -> list[int]:
+        column_dic = {
+            '子丑寅卯辰巳午未申酉戌亥': '支',
+            '木火土金水': '五行'
+        }
+        for key in column_dic:
+            if obj in key:
+                col = column_dic[key]
+                return [i for i, item in enumerate(self.GuaImageDict[col]) if obj == item]
+        else:
+            print('非法的参数obj！', obj)
+            return []
+
+    def 主卦六亲索引(self, 主卦六亲: str) -> list[int]:
         li = [i for i in range(6) if self.GuaImageDict['六亲'][i] == 主卦六亲]
         if li == []:
             li = self.伏藏索引(主卦六亲)
         return li
 
-    def 伏藏索引(self, 伏藏六亲: str):
-        # 所有伏藏位置的列为备选，用if筛选
-        return [i for i, num in enumerate(self.GuaImageDict['爻序']) if
-                12 <= num < 18 and self.GuaImageDict['六亲'][i] == 伏藏六亲]
+    def 伏神(self, sup=18, low=12):
+        idx_lst = []
+        lst = self.GuaImageDict['爻序']  # 这是升序的数组，倒着数更快
+        for idx in range(len(lst) - 1, -1, -1):
+            if low <= lst[idx] < sup:
+                idx_lst.append(idx)
+            elif lst[idx] < low:
+                break
+        return idx_lst
+        # return [i for i,num in enumerate(self.GuaImageDict['爻序']) if 12 <= lst[i] < 18]，比这个快一倍
+        # 伏神函数执行时间： 4.297473999904469e-07 秒，fu_shen函数执行时间： 8.178255999810063e-07 秒
 
-    def 变爻索引(self, 动爻六亲: str):
+    def 伏藏索引(self, 伏藏六亲: str) -> list[int]:
+        # 所有伏藏位置的列为备选，用if筛选
+        return [i for i in self.暂存箱['伏神'] if self.GuaImageDict['六亲'][i] == 伏藏六亲]
+
+    def 变爻索引(self, 动爻六亲: str = None, 动爻索引: list[int] = None, 变爻六亲: str = None) -> list[int]:
         # 动爻六亲，求变爻
         # solution:所有变爻位置的列为备选，用if筛选
-        return [i for i, num in enumerate(self.GuaImageDict['爻序']) if
-                6 <= num < 12 and self.GuaImageDict['六亲'][num % 6] == 动爻六亲]
+        yao_xu_lst = self.GuaImageDict['爻序']
+        if 动爻六亲:
+            return [yao_xu_lst.index(i + 6) for i in self.暂存箱['动爻'] if
+                    self.GuaImageDict['六亲'][i] == 动爻六亲]
+        elif 动爻索引:
+            # 最好加一个限制，动爻索引列表 all in [0,1,2,3,4,5]  ，表格的规律是这样的
+            return [yao_xu_lst.index(i + 6) for i in 动爻索引 if self.trigger_li[i]]
+        elif 变爻六亲:
+            return [i for i in self.暂存箱['变爻'] if self.GuaImageDict['六亲'][i] == 动爻六亲]
+        else:
+            print('动爻六亲，动爻序号，变爻六亲 必须输入一个！')
+            return []
 
     def vary_mort_IdxSet(self, idx: int):
         # 主卦里 和 '入墓 同六亲' make idx_lst；'入墓又发动 化出' make idx_lst；  '动墓'有两个 【solution】
         li = self.GuaImageDict['六亲']
-        li1 = self.GuaImageDict['爻序']
-        rumu = [i for i in range(6) if li[idx] == li[i]]
-        rumu_out = [li1.index(i + 6) for i in rumu if self.trigger_li[i]]
+        rumu = self.主卦六亲索引(li[idx])
+        rumu_out = self.变爻索引(动爻索引=rumu)
         vary_mu = [i for i in range(6) if li[self.Memory_idx] == li[i] and self.trigger_li[i]]
-        vary_mu_out = [li1.index(i + 6) for i in vary_mu]
+        vary_mu_out = self.变爻索引(动爻索引=vary_mu)
         vm_dict = {
             '入墓': rumu, '入墓化出': rumu_out, '入墓逢冲': self.冲用神(idx),
             '动墓': vary_mu, '动墓化出': vary_mu_out
@@ -1129,51 +1168,45 @@ class ConvertTextToCode:
         self.暂存箱.update(vm_dict)
         # print(self.暂存箱)
 
-    def one_vary_IdxSet(self, active_columns_1: list[str]):
-        # 一爻动变时，启用
-        onevary_name_lst = ['独发', '独发化出', '所冲', '所合', '变爻所冲', '变爻所合']
-        act_1 = [int(e) // 3 for e in active_columns_1]
-        act_1 = [idx for idx in act_1 if self.GuaImageDict['发动'][idx] == '发动']  # 筛选掉 '暗动'，保留 '发动'
-        return self.动变冲合(onevary_name_lst, act_1)
+    def add_idxlst(self) -> dict:
+        # 一爻动变时，启用 || 以下三个函数，后来看不懂了
+        onevary_obj_lst = ['独发', '独发化出', '所冲', '所合', '变爻所冲', '变爻所合']
+        idx_lst = [self.trigger_li.index(1)] if sum(self.trigger_li) == 1 else []
+        self.暂存箱.update(self.find_obj_idxlst(onevary_obj_lst, idx_lst))
 
-    def self_vary_IdxSet(self):
         # 世爻发动时，启用
-        name_lst = ['世爻', '世爻化出', '世爻所冲', '世爻所合', '世爻变爻所冲', '世爻变爻所合']
-        act_1 = [self.self_posit] if self.GuaImageDict['发动'][self.self_posit] == '发动' else []  # 世爻那行 '发动'，留下
-        return self.动变冲合(name_lst, act_1, self.self_posit)
+        obj_lst = ['世爻', '世爻化出', '世爻所冲', '世爻所合', '世爻变爻所冲', '世爻变爻所合']
+        idx_lst = [self.self_posit] if self.trigger_li[self.self_posit] else []  # 世爻那行 '发动'，留下
+        self.暂存箱.update(self.find_obj_idxlst(obj_lst, idx_lst, self.self_posit))
 
-    def 动变冲合(self, name_lst: list[str], act_col, primary_idx=None):
-        '''一个功能性函数，生产补充“暂存箱”的词典'''
-        VaryInfo_Dict = dict()
-        for key in name_lst:
-            VaryInfo_Dict[key] = []  # If you do not want all [],and First One must be written down ： ↓
+    def find_obj_idxlst(self, obj_lst: list[str], idx_lst: list[int], init_idx=None) -> dict:
+        '''
+        一个功能性函数，计算obj对应的idx_lst
+        好处：使得你的编写的obj命令能指向特定的idx
+        '''
+        vary_info_dict = dict()
+        for obj in obj_lst:
+            vary_info_dict[obj] = []  # initial obj to idx_lst's dict.
 
-        if primary_idx is not None:  # primary_idx:from 0 to 17
-            VaryInfo_Dict[name_lst[0]] = [primary_idx]
+        if init_idx:  # primary_idx:from 0 to 17. If you do not want all [],and First One must be written down ： ↓
+            vary_info_dict[obj_lst[0]] = [init_idx]
 
-        if len(act_col) != 1:  # 要求：独发
-            return VaryInfo_Dict
+        if len(idx_lst) != 1:  # 要求：独发，传入空列表，提前退出
+            return vary_info_dict
 
-        active_columns_1 = {  # 键：col， 值：key_lst
-            str(act_col[0] * 3 + 1): [name_lst[2], name_lst[3]], str(act_col[0] * 3 + 19): [name_lst[4], name_lst[5]]
+        active_columns_1 = {  # 键（按照特定的方法，idx换算成键）：col， 值：key_lst
+            str(idx_lst[0] * 3 + 1): [obj_lst[2], obj_lst[3]], str(idx_lst[0] * 3 + 19): [obj_lst[4], obj_lst[5]]
         }
-        n = self.GuaImageDict['爻序'].index(6 + act_col[0])
-        VaryInfo_Dict[name_lst[0]] = act_col
-        VaryInfo_Dict[name_lst[1]] = [n]
-        for col, key_lst in active_columns_1.items():
+        n = self.GuaImageDict['爻序'].index(6 + idx_lst[0])
+        vary_info_dict[obj_lst[0]] = idx_lst
+        vary_info_dict[obj_lst[1]] = [n]
+        for col, obj_lst in active_columns_1.items():
             value = self.GuaImageDict[col]
-            VaryInfo_Dict[key_lst[0]] = [idx for idx, v in enumerate(value) if v == '冲']  # 能找到相冲相合，就加入，找不到，[]
-            VaryInfo_Dict[key_lst[1]] = [idx for idx, v in enumerate(value) if v == '合']
-        return VaryInfo_Dict
+            vary_info_dict[obj_lst[0]] = [idx for idx, v in enumerate(value) if v == '冲']  # 能找到相冲相合，就加入，找不到，[]
+            vary_info_dict[obj_lst[1]] = [idx for idx, v in enumerate(value) if v == '合']
+        return vary_info_dict
 
-    def idx_set(self, char: int, col: str):
-        if len(char) > 1:
-            print(f'搞错了，{col}只能是一个字符 ==>', char)
-            return []
-        return [i for i, n in enumerate(self.GuaImageDict[col]) if char == n]
-
-    def find_sanhe(self, idx: int, mode='半合局'):
-
+    def find_sanhe(self, idx: int, mode='半合局') -> bool:
         if mode == '外三合局':
             wx = self.GuaImageDict['五行'][idx]  # '外三合局'：内外卦大象和五行同时满足一组条件
             _out, _inner = self.GuaInfo['外卦'][-1], self.GuaInfo['内卦'][-1]
@@ -1219,23 +1252,16 @@ class ConvertTextToCode:
 
         return condition
 
-    def edit_appendix(self, string, idx_lst):
-        '''
-        【移 神 法 则】没让移神就不要移神了，出来太多字了。
-        主卦上的爻，只移神，同五行的爻
-        变爻上的爻，移神到主卦中同五行的爻
-        :param string:
-        :param idx_lst:
-        :return:
-        '''
+    def add_suggestion_suffix(self, string, idx_lst):
         def find_high_accurcy(dic: dict, input_group, accury_rate=0.8):
+            # 这个函数，在dic里找到吻合率高的条目，加入self.suffix_set待用，删去dic中已加入的条目，并且返回（保证不会出现第二次）
             written_groups = []
             for group in dic.keys():
                 length = len(group)
                 match_count = len(set(group) & set(input_group))
                 rate = match_count / length
                 if rate >= accury_rate:
-                    self.appendix_set.append(' '.join(group) + "：" + dic[group])
+                    self.suffix_set.append(' '.join(group) + "：" + dic[group])
                     written_groups.append(group)
 
             for group in written_groups:
@@ -1268,60 +1294,52 @@ class ConvertTextToCode:
                     key = replace_dic[key]
                 return key
 
+        extra_idx_lst = []
         if '移神' in string:
             string = string.replace('移神', '')
-            lst = self.GuaImageDict['爻序']  # 【移 神 法 则】没让移神就不要移神了，出来太多字了。
-            rank = lst[idx_lst[0]]
-            if 0 <= rank < 12:
+            lst = self.GuaImageDict['爻序']  # 【移 神 法 则】没让移神就不要移神了，出来太多字了。||没有看懂移神的逻辑。
+            idx = idx_lst[0]
+            if self.isTargetYao('主卦', idx) or self.isTargetYao('变爻', idx):
                 hide_zhi = idx_lst[0] + 12  # 主卦，有伏神的话，需要移神； 变爻，移神入卦的六亲；看不懂，在主卦，你移神移到伏藏干什么？
                 idx_lst = idx_lst + [lst.index(hide_zhi)] if hide_zhi in lst else idx_lst
                 lq_value = self.GuaImageDict['六亲'][idx_lst[0]]
-            elif rank >= 12:
+            elif self.isTargetYao('伏神', idx):
                 lq_value = self.GuaImageDict['六亲'][rank % 6]
             else:
                 print('obj_idx_list是错误值:', ' '.join(idx_lst))
                 return True
-            idx_lst += self.主卦六亲索引(lq_value)
+            extra_idx_lst = [n for n in self.主卦六亲索引(lq_value) if n not in idx_lst]
 
         string = string[1:]  # string:'%static_vision（六神，六亲）'appendix=(string,),
         file_name, key_str = string.split('（', 1)
-        file_path = f'data/vision/{file_name}.txt'  # 【安卓】file_path = text,整段修改：
+        key_lst_1 = ['爻位', '六神', '六亲', '五行']
+        key_lst_2 = ['返卦', '世应', '空亡', '世爻地', '应爻地', '妻财地', '官鬼地', '父母地', '兄弟地', '子孙地']
+        key_lst_added = [part for part in key_str[:-1].split('-') if part]
+
+        if self.platform == 'PC':
+            file_path = f'data/vision/{file_name}.txt'
+        else:
+            file_path = 'general_vision_text'
+
         if file_path != self.current_file_path:
             self.current_file_path = file_path
-            text = self.readText_removeComments(file_path)  # 打开文件，初步清理
+            text = self.readText_removeComments(file_path, self.platform)  # 打开文件，初步清理
             self.text_dic = ReadTxtFile(text)  # 读取文本，按格式分割
 
-        key_lst = set(
-            ['爻位', '六神', '六亲', '五行', '返卦', '世应', '空亡', '世爻地', '应爻地', '妻财地', '官鬼地', '父母地',
-             '兄弟地', '子孙地'] + [part for part in key_str[:-1].split('-') if part])
-        input_ = set(tap_filter(key, idx) for key in key_lst for idx in idx_lst)  # 有缺陷，爻位出来是0-17，世应同宫也不好表示【改进】%移神
-        input_.add(self.GuaInfo['卦宫'][0])
-        self.text_dic = find_high_accurcy(self.text_dic, input_)
+        def get_info_set(key_list: list[str], idx_list: list[int]):
+            # 点名几个座位idx，点名几个科目key，放进一个麻袋里，去重
+            key_set = set(key_list)
+            return set(tap_filter(key, idx) for key in key_set for idx in idx_list)
+            # 有缺陷，爻位出来是0-17，世应同宫也不好表示【改进】%移神
+
+        input_set = get_info_set(key_lst_1 + key_lst_2 + key_lst_added, idx_lst)
+        if extra_idx_lst:
+            extra_input_set = get_info_set(key_lst_1 + key_lst_added, extra_idx_lst)
+            input_set.update(extra_input_set)
+        input_set.add(self.GuaInfo['卦宫'][0])
+        self.text_dic = find_high_accurcy(self.text_dic, input_set)
 
         return True
-
-        # def find_best_match(dic: dict, input_group):被淘汰的最匹配算法
-        # max_match = 0
-        # min_length = float('inf')
-        # result = None
-        # pass
-
-        # for group in dic.keys():
-        #     length = len(group)
-        #     match_count = len(set(group) & set(input_group))
-        #     rate = match_count/length
-        #     if rate >= 0.6:
-        #         self.appendix_set.append(' '.join(group) + "：" + dic[group])
-        # if match_count > max_match or (match_count == max_match != 0 and len(group) < min_length):
-        #     max_match = match_count
-        #     min_length = length
-        #     result = group
-        # 现在是以 匹配个数 match_count 最大 作为条件，elif 请改为 match_count/len(group) 超过0.6 作为条件
-        # 有个bug，正确率低迷也会矮子拔将军
-
-        # if result:
-        #     best_match = ' '.join(result) + "：" + dic[result]  # 定位：同等长度都要；伏藏可以移神飞神
-        #     self.appendix_set.append(best_match)
 
     def 冲用神(self, idx: int = None):
         # assume:id only one        一定要找到一个 相冲，找不到 移神 同六亲
@@ -1339,15 +1357,6 @@ class ConvertTextToCode:
         if idx_lst == []:
             idx_lst = self.主卦六亲索引(LIU_QIN[Num // 12])
         return idx_lst
-
-    # def 查六亲十二长生(self, 待求六亲索引: int, 动爻表格索引=None):
-    #     # idx1的六亲，是idx2的某十二长生
-    #     if not 动爻表格索引:
-    #         动爻表格索引 = self.GuaImageDict['爻序'][待求六亲索引] % 6
-    #     Num = self.GuaImageDict['60六亲'][动爻表格索引]
-    #     六亲 = self.GuaImageDict['六亲'][待求六亲索引]
-    #     result = 长生_60[Num][六亲]
-    #     return result
 
 
 def find_duplicates(lst1: list[str], lst2: list[int]):
@@ -1533,6 +1542,12 @@ def 计数刑(地支: int, 活跃地支列表: list[int]):
     return num
 
 
+# def isAndroid():
+#     return "ANDROID_DATA" in os.environ
+
+'''for PC which is able to import csv file'''
+
+
 def get_path_idx(trigger_li: list[int], gua_num: int):
     # get this status's idx
     n = sum(trigger_li)
@@ -1592,11 +1607,6 @@ def trigger_list_to_idx(li, n):
         return initial_table[(idx_1, idx_2)] + idx_3
 
 
-def Sixmode_to_Animals(Sixmode):
-    li = [animals[(Sixmode + 10 - i) % 6] for i in range(6)]
-    return li
-
-
 def read_specific_cell(csv_file, row_number, column_number):
     # 读取词典的某个单元格，节省内存
     try:
@@ -1623,10 +1633,7 @@ column_to_read = 7  # 要读取的列号，7为六爻，12为初爻
 result = read_specific_cell(csv_file, row_to_read, column_to_read)
 
 print(result)
-需求：
-化进 化退 回头生 回头克，写在表格里，尽量不要调函数
-妻财墓库 妻财长生 妻财沐浴
-子孙胎地 子孙长生 子孙墓库
+
 """
 
 """命爻部分"""
