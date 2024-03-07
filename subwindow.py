@@ -1,16 +1,13 @@
+import configparser
+import os
+import sqlite3
 import sys
+from constants import YONG_SHEN
+from PyQt5.QtCore import QObject, pyqtSignal, Qt, QTimer
+from PyQt5.QtGui import QColor, QPainter, QFont, QPalette, QPixmap
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, \
     QVBoxLayout, QHBoxLayout, QWidget, QScrollArea, QComboBox, QGroupBox, QGridLayout, QStyledItemDelegate, \
-    QStyleOptionViewItem, QHeaderView, QStyle, QTableView, QMessageBox
-from PyQt5.QtCore import QObject, pyqtSignal, Qt, QTimer
-import sqlite3
-from PyQt5.QtGui import QColor, QPainter, QFont, QPalette, QPixmap
-import os
-# import sys
-import configparser
-from PyQt5.QtWidgets import QTextEdit, QDialog, QInputDialog
-# from PyQt5.QtCore import Qt
-from constants import YONG_SHEN
+    QStyleOptionViewItem, QHeaderView, QStyle, QTableView, QMessageBox, QTextEdit, QDialog, QInputDialog
 
 
 class ImageSwitcher(QWidget):
@@ -645,9 +642,6 @@ class ColorDelegate(QStyledItemDelegate):
         # painter.drawText(option.rect, Qt.AlignCenter,index.data())
 
 
-# painter.fillRect(option.rect, QColor("#707b8d"))
-
-
 class GuaImageReader(QMainWindow):
     def __init__(self, data_dict):
         super().__init__()
@@ -769,7 +763,8 @@ class ConfigEditor(QWidget):
         self.db_files_list, self.txt_files_list = self.get_db_txt_files_list()
 
         # 初始化界面元素
-        self.message_label = QLabel()
+        self.message_label = QLabel('填写识别的关键字！\n设定你想让程序选择的db文件，知识库txt文件！')
+        self.message_label.setAlignment(Qt.AlignCenter)
         self.select_theme_combobox = QComboBox()
         self.textbox = QTextEdit()
         self.yongshen_combobox = QComboBox()
@@ -778,9 +773,9 @@ class ConfigEditor(QWidget):
         self.txt_combobox = QComboBox()
         self.db_combobox.addItems(self.db_files_list)
         self.txt_combobox.addItems(self.txt_files_list)
-        self.save_button = QPushButton("保存修改")
-        self.create_theme_button = QPushButton("创建主题")
-        self.create_file_button = QPushButton("创建文件")
+        self.save_button = QPushButton("保 存 修 改 ☎")
+        self.create_theme_button = QPushButton("创 建 主 题 🦚")
+        self.create_file_button = QPushButton("创 建 文 件 📖")
 
         # 设置布局
         layout = QVBoxLayout()
@@ -806,6 +801,7 @@ class ConfigEditor(QWidget):
         self.create_file_button.clicked.connect(self.create_new_file)
 
         self.resize(600, 600)
+        self.setWindowTitle('占题自动分类器')
 
     def get_db_txt_files_list(self):
         # 检测data直属路径下的所有db,txt文件
@@ -884,10 +880,6 @@ class ConfigEditor(QWidget):
         # 创建新文件
         folder_path = 'data'
 
-        # 检查data文件夹是否存在，不存在则创建
-        # if not os.path.exists(folder_path):
-        #     os.makedirs(folder_path)
-
         # 定义文件类型对应的combobox和后缀名的字典
         combobox_dict = {
             'db': self.db_combobox,
@@ -915,12 +907,6 @@ class ConfigEditor(QWidget):
 
                 # 将新文件添加到对应的combobox
                 combobox_dict[file_type].addItem(new_file_name)
-
-
-import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QGridLayout, QLabel, QComboBox, QPushButton, \
-    QTextEdit, QRadioButton
-from PyQt5.QtCore import Qt
 
 
 class FilterDB(QMainWindow):

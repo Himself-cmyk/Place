@@ -83,11 +83,11 @@ class MainPlace(QMainWindow):
         self.fileMenu.addSeparator()
 
         # 创建导出为txt的动作
-        self.configChangeAction = QAction('修改配置', self)
+        self.configChangeAction = QAction('占题自动分类', self)
         self.configChangeAction.triggered.connect(lambda: self.open_window("config_change"))
         self.fileMenu.addAction(self.configChangeAction)
 
-        self.exportWordAction = QAction('万能的按钮', self)
+        self.exportWordAction = QAction('任意键', self)
         self.exportWordAction.triggered.connect(write_as_txt)
         self.fileMenu.addAction(self.exportWordAction)
 
@@ -969,7 +969,7 @@ class StdoutRedirector:
 if __name__ == '__main__':
     app = QApplication([])
     window = MainPlace()
-    icon = QIcon(r"D:\python文件\place\64.ico")
+    icon = QIcon(r"img\64.ico")   # 不知怎么处理好
     window.setWindowIcon(icon)
     window.show()
     app.exec_()
