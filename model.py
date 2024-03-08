@@ -808,14 +808,22 @@ class ConvertTextToCode:
 
         # 主语obj 带有”或“字，需要分割
         if '或' in obj:
-            if obj.startswith('或'):  # 不能带“或”字开头
+            if obj.startswith('或'):  # 只是一个识别的符号，截去，不能带“或”字开头
                 obj = obj[1:]
             else:
                 obj_lst = []
                 for sub_obj in obj.split('或'):
-                    _lst, condition_section = self.对象识别([sub_obj] + condition_section[1:])
-                    if _lst and _lst is not True:
-                        obj_lst += _lst
+                    result, condition_section = self.对象识别([sub_obj] + condition_section[1:])
+                    if isinstance(result, list):
+                        obj_lst += result
+                    elif result is True:
+                        obj_lst = result
+                        break
+                    elif result is False:
+                        obj_lst = result
+                    else:
+                        print('不希望的主语：', condition_section)
+                        return [], condition_section
 
                 return obj_lst, condition_section
 
@@ -1404,6 +1412,18 @@ class CellEditorWindow(QMainWindow):
 
         # 创建文本编辑框
         self.text_edit = QTextEdit()
+        self.text_edit.setStyleSheet("""
+            QTextEdit {
+                font-family: 'Courier New', Courier, monospace;  /* 设置字体为编程字体 */
+                font-size: 30px;                                  /* 设置字体大小 */
+                line-height: 3;                                 /* 设置行高为字体高度的1.5倍【设置了没用】 */
+                border: 1px solid grey;                           /* 设置边框为1px灰色实线 */
+                padding: 5px;                                    /* 设置内边距为5像素 */
+            }
+            QTextEdit:focus {
+                border: 2px solid grey;                         /* 设置焦点状态下的边框为2px白色实线 */
+            }
+        """)
         self.msg_label = QLabel('正在查看内容...')
 
         # 创建保存按钮
@@ -1435,7 +1455,7 @@ class CellEditorWindow(QMainWindow):
         central_widget.setLayout(layout)
         self.setCentralWidget(central_widget)
 
-        self.resize(600, 800)
+        self.resize(1200, 1200)
         self.setWindowTitle('编辑备注信息')
 
         # 初始加载第一个单元格的内容

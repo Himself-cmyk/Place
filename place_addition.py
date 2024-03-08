@@ -5,8 +5,6 @@ GAN = ["癸", "甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬"]
 ZHI = ["亥", "子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌"]
 KONG_WANG = ["戌亥", "子丑", "寅卯", "辰巳", "午未", "申酉"]
 
-
-
 """处理排卦输入"""
 
 
@@ -50,11 +48,12 @@ def main_input(coinsNumber_list_input: str, Time_input: str):
             Time_input_list = lunar_Time_contains_MouthDay(Time_input)
         else:
             Time_input_list = delimiter_method(Time_input)
-        if not Time_input_list:
-            print(Time_input_list, '⚠ Time_input 是不是出现错误？')
-            return
-        Time_list, empty, time_Str = time_input_process(Time_input_list)
-
+        if Time_input_list:
+            Time_list, empty, time_Str = time_input_process(Time_input_list)
+        else:
+            print(Time_input_list, '⚠ Time_input 是不是出现错误？自动切换当前时间...')
+            yearg, yearz, yuel, rigan, richen, hour, empty, time_Str = get_time()
+            Time_list = [rigan, yuel, richen, yearg, yearz, hour]
     else:
         yearg, yearz, yuel, rigan, richen, hour, empty, time_Str = get_time()
         Time_list = [rigan, yuel, richen, yearg, yearz, hour]
@@ -153,7 +152,7 @@ GUA_NAMES = [
     '地火明夷', '地水师', '巽为风', '风天小畜', '风火家人', '风雷益', '天雷无妄', '火雷噬嗑', '山雷颐', '山风蛊',
     '艮为山', '山火贲', '山天大畜', '山泽损', '火泽睽', '天泽履', '风泽中孚', '风山渐', '坤为地', '地雷复', '地泽临',
     '地天泰', '雷天大壮', '泽天夬', '水天需', '水地比', '离为火', '火山旅', '火风鼎', '火水未济', '山水蒙', '风水涣',
-    '天水讼', '天火同人', '兑为泽', '泽水困', '泽地萃', '泽山咸', '水山蹇', '地山谦', '雷山小过', '雷泽归妹','空白']
+    '天水讼', '天火同人', '兑为泽', '泽水困', '泽地萃', '泽山咸', '水山蹇', '地山谦', '雷山小过', '雷泽归妹', '空白']
 # HuaJia60 = [
 #     "甲子", "甲寅", "甲辰", "甲午", "甲申", "甲戌",#     "乙丑", "乙卯", "乙巳", "乙未", "乙酉", "乙亥",
 #     "丙子", "丙寅", "丙辰", "丙午", "丙申", "丙戌",#     "丁丑", "丁卯", "丁巳", "丁未", "丁酉", "丁亥",
