@@ -129,7 +129,7 @@ def calculate_time(func):
 
 
 class AnalyModel:
-    def __init__(self, TimeList: list[int], empty_str: str, CoinsInfoList, OtherList):
+    def __init__(self, TimeList: list[int], empty_str: str, CoinsInfoList, OtherList, simplify=False):
         # 需要什么用什么，自助；不用自己去算
         # coinsNumber_list是(六五四三二初)
         self.rigan, self.month, self.date, self.yearg, self.yearz, self.hour = TimeList
@@ -149,6 +149,9 @@ class AnalyModel:
         from GIDCoreCode import GuaImageEditor
         GuaImageDict = self.DF_output()
         self.GuaImageData = GuaImageEditor(GuaImageDict).edit_process()
+
+        if simplify:
+            return
 
         # function for PC
         self.window = None
@@ -175,16 +178,41 @@ class AnalyModel:
         if tp:
             self.cell_params.append(tp)
 
+    def zip_func(self):
+        if not self.yongshen:
+            self.yongshen = '妻财'
+        time = [self.rigan, self.month, self.date, self.yearz, self.hour]
+        guainfo = [self.gua_num, self.biangua_num, self.coinsNumber_list, self.trigger_li, self.GuaShu_li, self.WuXing,
+                   self.self_posit, self.other_posit, self.SixMode, self.yongshen]
+        return time, guainfo
+
     def 主要信息接口(self, TextFile):
         """
         :param TextFile: 知识库txt的路径。该txt文件按照一定的规范书写。
         :return: ConvertTextToCode 类的子方法 查条文() 自带打印功能。
         """
-        time = [self.rigan, self.month, self.date, self.yearz, self.hour]
-        guainfo = [self.gua_num, self.biangua_num, self.coinsNumber_list, self.trigger_li, self.GuaShu_li, self.WuXing,
-                   self.self_posit, self.other_posit, self.SixMode, self.yongshen]
+        time, guainfo = self.zip_func()
         self.转机器语言工具 = ConvertTextToCode(self.GuaImageData, time, guainfo, TextFile)
         # print(self.GuaImageData)
+
+    def rapid_check(self, input_text: str):
+        time, guainfo = self.zip_func()
+        self.转机器语言工具 = ConvertTextToCode(self.GuaImageData, time, guainfo, '')
+        if self.转机器语言工具.check_lines(input_text.strip()):
+            return True
+        else:
+            return False
+        # TODO:rapid_check的类的初始化
+        '''
+        从数据库，提取信息
+        self.rigan, self.month, self.date = 对应的值，年干支和时辰从文本提取
+        coinsNumber_list = [int(i) for i in coinsNumber_list]
+        self.gua_num, self.biangua_num = 对应的值
+        self.WuXing, self.SixMode = h_caculate(self.gua_num, self.rigan)
+        self.mingyao, self.yongshen = 无
+        simplify = True
+        问题解决了
+        '''
 
     '''function for PC'''
 
@@ -341,7 +369,7 @@ class AnalyModel:
         for (yao_xu, Num, name) in [(18, Month, '月建'), (19, Date, '日辰')]:
             yao = FAMILY[Num]
             dic = {'爻序': yao_xu, '六神': name, '六亲': yao[:2], '支': yao[2], '五行': yao[3], '返卦': 返卦[Num % 12],
-                   '60六亲': Num}
+                   '60六亲': Num, '月合': 冲合值(Num % 12, self.month), '月地': 长生_60[Month][yao[:2]], }
             for key, value in GuaImageDict.items():
                 if key in dic:
                     GuaImageDict[key].append(dic[key])
@@ -371,7 +399,6 @@ class ConvertTextToCode:
         self.save_idx_lst = []
         self.current_file_path, self.suffix_set = '', []
         self.platform = 'PC'  # 'Android' if isAndroid() else
-        # self.debug = False
 
         if not guainfo or not time or not GuaImageDict:
             print('重要数值为空')
@@ -386,11 +413,9 @@ class ConvertTextToCode:
         self.coinsNumber_list = tuple(cNlist)
         self.biangua_num = self.gua_num if self.biangua_num > 63 else self.biangua_num
 
-        # 传入条文集txt的文件路径
-        self.断语词典: list[dict] = self.源文本处理(TextFilePath)  # requirement:需要上文的'self.yongshen'，不要打乱上下文顺序！
         num = min(self.self_posit, self.other_posit)
         lst = self.GuaImageDict['爻序']
-        self.暂存箱 = {  # 储存obj:[idx]
+        self.暂存箱 = {  # 这个变量的作用是，储存obj:[idx]
             '动墓': [],
             '应爻': [self.other_posit], '间爻': list(range(num + 1, num + 3)),
             '*': list(range(6)), '**': list(range(len(self.GuaImageDict['支']))),
@@ -406,10 +431,11 @@ class ConvertTextToCode:
             '伏神': self.伏神(),
             '变爻': self.伏神(12, 6),
             '动爻': [i for i, num in enumerate(self.trigger_li) if num],
-            '静爻': [i for i, num in enumerate(self.trigger_li) if num == 0]
+            '静爻': [i for i, num in enumerate(self.trigger_li) if num == 0],
+            # '暗动': [i for i, s in enumerate(self.GuaImageDict['发动']) if s == '暗动']
         }
 
-        self.OtherImforation()
+        self.OtherInformation()
 
         self.lines_animals = {
             '六爻': 0, '五爻': 1, '四爻': 2, '三爻': 3, '二爻': 4, '初爻': 5,
@@ -444,6 +470,7 @@ class ConvertTextToCode:
                 # '合应': [self.other_posit, '合', 冲合值], '冲应': [self.other_posit, '冲', 冲合值],
                 '生世': [self.self_posit, '生', 生扶克], '克世': [self.self_posit, '克', 生扶克],
                 '世爻替身': [self.self_posit, '扶', 生扶克], '生应': [self.other_posit, '生', 生扶克],
+                '刑世':[self.self_posit,'刑',刑]
             },
             '变爻行标志': {'化空亡': ['空亡', '空亡'], '化月破': ['月合', '冲'], '化月合': ['月合', '合'],
                            '化日冲': ['日合', '冲'], '化日合': ['日合', '合'],
@@ -485,12 +512,17 @@ class ConvertTextToCode:
 
                 '太岁': ['支', ZHI[self.yearz % 12] if self.yearz else '无'],
                 '明年': ['支', ZHI[(self.yearz + 1) % 12] if self.yearz else '无'],
+                '去年': ['支', ZHI[(self.yearz - 1) % 12] if self.yearz else '无'],
                 '日扶': ['日生', '扶'], '日生': ['日生', '生'], '日克': ['日生', '克'],
                 '日不生': ['日生', ''],
                 '日辰': ['日合', '值'], '明日': ['支', ZHI[(self.date + 1) % 12]],
-                '明日冲': ['支', ZHI[(self.date + 7) % 12]], '时辰': ['支', ZHI[self.hour % 12] if self.hour else '无'],
+                '明日逢冲': ['支', ZHI[(self.date + 7) % 12]], '昨日逢冲': ['支', ZHI[(self.date + 5) % 12]],
+                '次月逢冲': ['支', ZHI[(self.month + 7) % 12]],
+                '来年逢冲': ['支', ZHI[(self.yearz + 5) % 12] if self.yearz else '无'],
+
+                '时辰': ['支', ZHI[self.hour % 12] if self.hour else '无'],
                 '时冲': ['支', ZHI[(self.hour + 6) % 12] if self.hour else '无'],
-                '昨日': ['支', ZHI[(self.date - 1) % 12]], '昨日冲': ['支', ZHI[(self.date + 5) % 12]],
+                '昨日': ['支', ZHI[(self.date - 1) % 12]],
                 '日冲': ['日合', '冲'], '日合': ['日合', '合'], '日害': ['日合', '害'],
                 '入日墓': ['日地', '墓'], '日为死地': ['日地', '死'], '日为绝地': ['日地', '绝'],
                 '日为长生': ['日地', '长'], '日为病地': ['日地', '病'], '日刑': ['日刑', '刑'],
@@ -501,13 +533,18 @@ class ConvertTextToCode:
                 '持世': ['世应', '世'], '临应': ['世应', '应'], '间爻': ['世应', '间']},
         }
         self.add_idxlst()  # update self.暂存箱
-        self.查条文()  # 自带打印；查条纹之后，update self.暂存箱，新增了很多内容；struction is two parts:{'obj':idx_list,idx:{'string':True}}
+        # 传入条文集txt的文件路径
+        # requirement:需要上文的'yong_shen'，不要打乱上下文顺序！read_lines需要条件初始化完成。
+        if not TextFilePath:
+            return
+        self.查条文(
+            TextFilePath)  # 自带打印；查条纹之后，update self.暂存箱，新增了很多内容；struction is two parts:{'obj':idx_list,idx:{'string':True}}
         # for key, value in self.暂存箱.items():
         #     if not value:
         #         continue
-        #     print(key, value)
+        #     print(key, value) # 打印暂存箱
 
-    def OtherImforation(self):
+    def OtherInformation(self):
         outer, inner = self.coinsNumber_list[:3], self.coinsNumber_list[3:]
         str_o, str_i = HalfGua_TO_NAME[outer], HalfGua_TO_NAME[inner]
 
@@ -548,12 +585,17 @@ class ConvertTextToCode:
         # calls 'GuaInfo', a special '暂存箱'
         # example:'日主 丙',this one to one;'外卦 巽/化艮/巽化艮/反吟',this one to more
 
+        # special_text
+        lst = [i + '日' for i in '建除满平定执破危成收开闭']
+        jian_chu_value = lst[(self.date - self.month + 12) % 12]
+        self.GuaInfo['建除'] = [jian_chu_value]
+
     @staticmethod
     def readText_removeComments(textfile, platform='PC'):
         if platform == 'PC' and textfile.endswith('.txt'):
             with open(textfile, 'r', encoding='utf-8') as f:
                 bigtext = f.read()
-        elif platform == 'Android' and isinstance(textfile, str):
+        elif platform == 'Android' and isinstance(textfile, str):  # 安卓平台不能导入txt文件，出此下策
             bigtext = textfile
         else:
             return ''
@@ -595,20 +637,25 @@ class ConvertTextToCode:
         断语：条件 “：” 断语 “。”
         '''
 
-        # 按句分割文本
-
-        bigtext = self.readText_removeComments(textfile, self.platform)  # 移除注释
+        # 检查格式，移除注释；根据用神，替代关键字
+        bigtext = self.readText_removeComments(textfile, self.platform)
         bigtext = self.替代用神(self.yongshen, bigtext)
 
+        # 按句分割文本，句号为一个完整条文单位。article：一条条文，如“官鬼 发动：有人偷。妻财 发动：自己不见了。”
         articles = bigtext.split('。')
         断语词典 = []
 
-        for article in articles:  # article：一条条文，如“官鬼 发动：有人偷 / 妻财 发动：自己不见了。”
-            if article.strip() == "":  # 移除換行、空格
+        for article in articles:
+            article = article.strip()
+            if not article:  # 移除換行、空格
                 break
             elif "：" not in article:
                 print("此条文没有冒号。", article)
                 break
+            if article.startswith('·'):
+                self.read_lines(article)
+                continue
+                # 满足识别的条件，转跳到高级的循环。不必进行下文的处理。
 
             tmp_dict = {}
             sub_articles = article.split('|')  # sub_articles：分条文，如：“官鬼 发动：有人偷”
@@ -650,13 +697,16 @@ class ConvertTextToCode:
         return result
 
     @calculate_time
-    def 查条文(self):
+    def 查条文(self, TextFilePath):
+        断语词典: list[dict] = self.源文本处理(TextFilePath)
         条文箩筐 = [{}, {}, {}, {}, {}, {}, {}]
-        if not self.断语词典:
+        if not 断语词典:
             print("断语词典为空")
             return None
-        for dic in self.断语词典:
-            # 取出一对断语、条件，识别条件。条件为真，放进箩筐。属于第几行，放进几号筐。
+
+        # 箩筐的挑选环节。不建议保存一个 ”self.断语词典“ 的类成员变量
+        # 取出一对断语、条件，识别条件。条件为真，放进箩筐。属于第几行，放进几号筐。
+        for dic in 断语词典:
             for saying, condition_dic in dic.items():
                 # print("·【断语和词典】", saying, condition_dic)  # 查看总的断语
                 self.line_belong = None
@@ -673,6 +723,7 @@ class ConvertTextToCode:
                     self.line_belong = None
                     # print('放进箩筐！')else:print('不放进箩筐~')
                     break  # dic的一个键值对满足了就跳出，不满足继续寻找下一个键值对(spilt by separator '|',end by terminator '。')
+
         for i, articles_dic in enumerate(条文箩筐):
             if ResulText := self.词典反编译(articles_dic):
                 print("line:", i + 1)
@@ -746,9 +797,11 @@ class ConvertTextToCode:
                         break
                 else:
                     return False
-            elif string.startswith('%'):  # 定位亥月癸巳日火天大有天雷无妄
-                condition_lst = [True]  # 写这一段目的是什么？
-                if string == '%':
+            elif string.startswith('%') or string == '*':  # 定位亥月癸巳日火天大有天雷无妄
+                condition_lst = [True]  # 特殊词汇默认为True
+                if string == '*':
+                    self.暂存箱['上述'] = obj_idx_list
+                elif string == '%':
                     self.save_idx_lst.extend(obj_idx_list)
                 else:
                     obj_idx_list += self.save_idx_lst
@@ -761,25 +814,31 @@ class ConvertTextToCode:
                 self.tmp = condition_section
                 condition_lst = [self.select_cell(idx, string) for idx in obj_idx_list]
 
-                if not any(condition_lst):
-                    # condition_section[1:]每一个单词都需要过关，有一个错的就劝退
+                # condition_section[1:]每一个单词都需要过关。
+                # 对于一个正常的string，一个对的都没有，这关过不了，劝退；
+                # 取非要求一个对的都没有。如果取非了，一个对的都没有，反而符合条件；有一个对的就判负了
+                cond_1 = any(condition_lst)  # 一个对的都没有:False;有一个对的:True
+                cond_2 = string.startswith('非')  # 正常string:False;需要取非:True
+                if cond_1 == cond_2:
                     return False
 
             if (leng := len(condition_lst)) >= 2:  # and check【决定删除】
                 obj_idx_list = [obj_idx_list[i] for i in range(leng) if condition_lst[i]]
                 # 新改的代码，根据对错，调节obj_idx_list
+            self.former_idxlst = obj_idx_list
 
         # for 循环每一个单词都过关了，才能return True
+        if not self.line_belong:
+            self.line_belong = self.GuaImageDict["爻序"][obj_idx_list[0]] % 6 if obj_idx_list else None
+
+        return True
         # if self.debug:
         #     print(f"〇 condition_section: {condition_section}")
         # if condition_section[1] == '五爻':
         #     pass
-        if not self.line_belong:
-            self.line_belong = self.GuaImageDict["爻序"][obj_idx_list[0]] % 6
-        return True
 
     def isTargetYao(self, YaoType: str, idx=None) -> bool:
-        if idx == None:  # 你是不是想改成 not idx？这可不行，0是可以进函数的。
+        if idx is None:  # 你是不是想改成 not idx？这可不行，0是可以进函数的。
             idx = self.former_idxlst[0]
         yao_xu_lst = self.GuaImageDict['爻序']
         if YaoType == '变爻':
@@ -806,26 +865,25 @@ class ConvertTextToCode:
         else:
             obj, verb_1, verb_2 = condition_section + [None] * (3 - len(condition_section))  # 考虑下文
 
-        # 主语obj 带有”或“字，需要分割
-        if '或' in obj:
-            if obj.startswith('或'):  # 只是一个识别的符号，截去，不能带“或”字开头
-                obj = obj[1:]
-            else:
-                obj_lst = []
-                for sub_obj in obj.split('或'):
-                    result, condition_section = self.对象识别([sub_obj] + condition_section[1:])
-                    if isinstance(result, list):
-                        obj_lst += result
-                    elif result is True:
-                        obj_lst = result
-                        break
-                    elif result is False:
-                        obj_lst = result
-                    else:
-                        print('不希望的主语：', condition_section)
-                        return [], condition_section
+        if obj[0] in ['或', '·']:  # 只是一个识别的符号，截去，不能带“或”字开头；主语obj 带有”或“字，需要分割
+            obj = obj[1:]
 
-                return obj_lst, condition_section
+        if '或' in obj:
+            obj_lst = []
+            for sub_obj in obj.split('或'):
+                result, condition_section = self.对象识别([sub_obj] + condition_section[1:])
+                if isinstance(result, list):
+                    obj_lst += result
+                elif result is True:
+                    obj_lst = result
+                    break
+                elif result is False:
+                    obj_lst = result
+                else:
+                    print('不希望的主语：', condition_section)
+                    return [], condition_section
+
+            return obj_lst, condition_section
 
         verb_li = [verb for verb in [verb_1, verb_2] if verb in self.lines_animals and verb not in '月建|日辰']  # 起码
 
@@ -870,7 +928,7 @@ class ConvertTextToCode:
 
         elif obj in ['墓库', '该爻']:
             idx_list = [self.Memory_idx] if self.Memory_idx else []
-        elif obj in ['此动爻', '入卦', '化出', '飞神', '飞神化出']:
+        elif obj in ['此动爻', '入卦', '化出', '飞神', '飞神化出']:  # 飞神会被暂存箱截胡，代码在找伏神idx_lst的函数里
             idx_list = check_former_idx()
         elif obj in ['三合局', '半合局', '三刑']:
             idx_list = self.last_idx_group
@@ -939,7 +997,7 @@ class ConvertTextToCode:
         if verb_li:
             idx_list, condition_section = filter_and_drop(idx_list, condition_section)
 
-        self.former_idxlst = idx_list  # 记住前一个obj[new]
+        # self.former_idxlst = idx_list  # 记住前一个obj[new]
 
         return idx_list, condition_section
 
@@ -960,26 +1018,12 @@ class ConvertTextToCode:
             condition = self.暂存箱[idx][string]
             return condition
 
-        if string.startswith('非'):  # 暂时不加入暂存箱
-            string = string[1:]
-            return not self.select_cell(idx, string)
-
-        convert_string_alive = {
-            '变爻列标志': {
-                # using 'idx' to adjust col_name
-                '回头生': [str(18 + idx * 3), '生'], '回头克': [str(18 + idx * 3), '克'],
-                '化合': [str(19 + idx * 3), '合'],
-                '化长生': [str(20 + idx * 3), '长'], '化沐浴': [str(20 + idx * 3), '沐'],
-                '化死地': [str(20 + idx * 3), '死'],
-                # 为什么是18，19，20？主卦才有化死地，化墓，主卦的idx一定小于6
-                '化墓': [str(20 + idx * 3), '墓'],
-                '化绝': [str(20 + idx * 3), '绝'], '化进': [str(18 + idx * 3), '进'],
-                '化退': [str(18 + idx * 3), '退']},
-            '行列重置': {
-                '合二爻': [4, str(1 + self.GuaImageDict['爻序'][idx] * 3), '合'],
-                # '合世爻': [self.self_posit, str(1 + idx * 3), '合'],
-            }
-        }
+        if string[0] not in '非|不':
+            pass
+        elif string[0] == '非':
+            string = string[1:]  # return not self.select_cell(idx, string),逻辑移到外面
+        elif string[0] == '不':
+            return not self.select_cell(idx, string[1:])
 
         if string in self.convert_string['外部函数']:
             dizhi, value, funtion = self.convert_string['外部函数'][string]
@@ -1023,20 +1067,36 @@ class ConvertTextToCode:
                 key, value = self.convert_string['六亲六神'][string]
             elif string in self.convert_string['日月发动世应']:  # 包括 所有 日月 生克扶、冲合值、十二长生、刑、下一个四值；动爻 类型
                 key, value = self.convert_string['日月发动世应'][string]
-            elif string in convert_string_alive['变爻列标志']:  # string_value_range:(化墓,化合,回头生) ; valid_idx:for all 动爻
-                # 不必变更，按照 上述词典对表格。不符合条件劝退
+            elif string in '回头生|回头克|化合|化长生|化沐浴|化死地|化墓|化绝|化退|化进':  # 列举了 string_value_range; valid_idx:for all 动爻
                 if idx >= 6 or self.trigger_li[idx] == 0:  # valid_test:只有 主卦 发动，才有。否则在这里要劝退。
                     self.暂存箱[idx][string] = False
                     return False
-                key, value = convert_string_alive['变爻列标志'][string]
+                # 不必变更，按照 上述词典对表格。不符合条件劝退
+                convert_string_alive = {  # '变爻列标志'
+                    # using 'idx' to adjust col_name
+                    '回头生': [str(18 + idx * 3), '生'], '回头克': [str(18 + idx * 3), '克'],
+                    '化合': [str(19 + idx * 3), '合'],
+                    '化长生': [str(20 + idx * 3), '长'], '化沐浴': [str(20 + idx * 3), '沐'],
+                    '化死地': [str(20 + idx * 3), '死'],
+                    # 为什么是18，19，20？主卦才有化死地，化墓，主卦的idx一定小于6
+                    '化墓': [str(20 + idx * 3), '墓'],
+                    '化绝': [str(20 + idx * 3), '绝'], '化进': [str(18 + idx * 3), '进'],
+                    '化退': [str(18 + idx * 3), '退']}
+                key, value = convert_string_alive[string]
             elif string.endswith('同宫'):  # 父母同宫？
-                string = string[:-2]
+                prefix = string[:-2]
+                fua_gua = self.GuaImageDict['返卦'][idx]
 
-                if string in self.lines_animals:
-                    n = self.lines_animals[string]
+                if prefix in self.lines_animals:
+                    n = self.lines_animals[prefix]
                     if n == idx:  # 自己和自己同宫，没有意义
                         return False
                     key, value = ['返卦', self.GuaImageDict['返卦'][n]]
+                elif prefix in '父母|官鬼|妻财|子孙|兄弟':
+                    idx_lst = [n for n in self.idx_set(fua_gua) if n != idx]
+                    condition = any(self.GuaImageDict['六亲'][i] == prefix for i in idx_lst)
+                    return condition
+
             elif string in '外卦|内卦|世上|世下|应上|应下|伏藏':
                 rank = self.GuaImageDict['爻序'][idx]
                 value_dict = {
@@ -1047,7 +1107,6 @@ class ConvertTextToCode:
                     '应上': self.other_posit - 1 if self.other_posit > 0 else False,
                     '应下': self.other_posit + 1 if self.other_posit < 5 else False,
                     '伏藏': idx if rank >= 12 else False,
-
                 }
                 key, value = '爻序', value_dict[string]
 
@@ -1072,7 +1131,12 @@ class ConvertTextToCode:
                 idx = int(self.GuaImageDict['发动'][n])  # 变爻idx 转 动爻idx
                 add_to_memory = False
 
-            elif string[0] in '冲|合':
+            elif '冲' in string or '合' in string:  # ”化出冲世/化出合应”;可能误处理的：包含”冲合“的字段
+                if string.startswith('化出'):
+                    if not 5 < idx <= 11:
+                        return False
+                    idx = self.GuaImageDict['爻序'].index(idx + 6)
+                    string = string[2:]
                 if string[1:] in LIU_QIN:
                     key, value = f'{string[0]}六亲', string
                 elif string[1:] in yao_wei:
@@ -1080,13 +1144,17 @@ class ConvertTextToCode:
                 elif string[1:] in '世|应':
                     key, value = f'冲合{string[1:]}', string
                 else:
-                    print(string, f'其中的【{string[1:]}】是不规范的字符！注：冲世|合世|冲应|合应')
+                    print(string, f'其中的【{string[1:]}】是不规范的字符！注：冲世|合世|冲应|合应|化出合世')
 
             elif string[:2] in '父母|兄弟|子孙|妻财|官鬼|世爻|应爻' and string[2:] in round_12_brif:  # 查询 长生十二长生状态
                 key, value = f'{string[:2]}地', string
 
-            elif string in convert_string_alive['行列重置']:  # extend_type.大规模 调整 idx, key, value
-                idx, key, value = convert_string_alive['行列重置'][string]
+            elif string == '合二爻':  # extend_type.大规模 调整 idx, key, value
+                convert_string_ = {
+                    '合二爻': [4, str(1 + self.GuaImageDict['爻序'][idx] * 3), '合'],
+                    # '合世爻': [self.self_posit, str(1 + idx * 3), '合'],
+                }
+                idx, key, value = convert_string_[string]
                 add_to_memory = False
                 if key not in self.GuaImageDict:
                     return False
@@ -1109,12 +1177,73 @@ class ConvertTextToCode:
 
         return condition
 
+    def ReadLinesFunc(self, text):
+        def handle_func(nested_list):
+            if self.句子识别(nested_list):
+                return True
+            return False
+
+        # if '世爻 暗动' in text:
+        #     pass
+
+        if '：' in text:
+            idx = text.index('：')
+            return self.ReadLinesFunc(text[:idx] + '，')
+        elif text.endswith('，'):
+            li = [i for i in text.split('，') if i]  # ['obj1 string1 string2','obj2 string1']
+            condition = handle_func([[n.strip() for n in l.split(' ')] for l in li])
+            return condition
+        elif not text:
+            return True
+        else:
+            print('wrong line:', text)
+            return False
+
+    def read_lines(self, input_text):
+        # 美观版，用于校对输入的所有条文，True则打印条文，继续检验条文下的子分支；False则不打印，skip子分支
+        input_lines = input_text.splitlines()
+        current_indentation = 0
+        memory_dic = {}
+
+        for line in input_lines:
+            if not line.strip():
+                continue
+            line = line.replace('\t', ' ' * 4)  # 出现混用，需要统一整平缩进
+            indentation = len(line) - len(line.lstrip())
+            if indentation % 4 != 0:
+                indentation += (indentation % 4) * 3
+                print('这玩意儿缩进不规范：\n', line)
+                # '\t'被认为是一位缩进，实际应该是4位，补回去; 1，5，9，补1*3；2，6，10，补2*3；
+            if indentation > current_indentation:
+                if not memory_dic[current_indentation]:
+                    continue
+                    # 上级是错的，所属的下级（子分支）都是错的，不用判断
+                current_indentation = indentation
+            elif indentation < current_indentation:
+                current_indentation = indentation
+
+            condition = self.ReadLinesFunc(line.lstrip())
+            memory_dic[indentation] = condition
+            if condition:
+                print(line.replace(' ' * 4, '\t'))  # 同一整平为Tab
+                # 碰到平级，下级，重新记录正误
+        if any(i for i in memory_dic.values()):
+            print()  # 这是分割行
+
+    def check_lines(self, input_text):
+        # 精简版，仅仅用于校对输入的所有条文，返回True/False
+        input_lines = input_text.splitlines()
+        check_results_lst = [self.ReadLinesFunc(line.lstrip() + '，') for line in input_lines if line.strip()]
+        res = all(check_results_lst)
+        return res
+
     '''all the following fuction is zombie,seldom raise error'''
 
     def idx_set(self, obj: str) -> list[int]:
         column_dic = {
             '子丑寅卯辰巳午未申酉戌亥': '支',
-            '木火土金水': '五行'
+            '木火土金水': '五行',
+            '乾坎艮震巽离坤兑': '返卦',
         }
         for key in column_dic:
             if obj in key:
@@ -1144,7 +1273,10 @@ class ConvertTextToCode:
 
     def 伏藏索引(self, 伏藏六亲: str) -> list[int]:
         # 所有伏藏位置的列为备选，用if筛选
-        return [i for i in self.暂存箱['伏神'] if self.GuaImageDict['六亲'][i] == 伏藏六亲]
+        res = [i for i in self.暂存箱['伏神'] if self.GuaImageDict['六亲'][i] == 伏藏六亲]
+        if res:
+            self.暂存箱['飞神'] = [self.GuaImageDict['爻序'][res[0]] % 12]  # res不能是[]，索引失去意义
+        return res
 
     def 变爻索引(self, 动爻六亲: str = None, 动爻索引: list[int] = None, 变爻六亲: str = None) -> list[int]:
         # 动爻六亲，求变爻
@@ -1155,7 +1287,7 @@ class ConvertTextToCode:
                     self.GuaImageDict['六亲'][i] == 动爻六亲]
         elif 动爻索引:
             # 最好加一个限制，动爻索引列表 all in [0,1,2,3,4,5]  ，表格的规律是这样的
-            return [yao_xu_lst.index(i + 6) for i in 动爻索引 if self.trigger_li[i]]
+            return [yao_xu_lst.index(i + 6) for i in 动爻索引 if i <= 5 and self.trigger_li[i]]
         elif 变爻六亲:
             return [i for i in self.暂存箱['变爻'] if self.GuaImageDict['六亲'][i] == 动爻六亲]
         else:
@@ -1168,7 +1300,7 @@ class ConvertTextToCode:
         rumu = self.主卦六亲索引(li[idx])
         rumu_out = self.变爻索引(动爻索引=rumu)
         vary_mu = [i for i in range(6) if li[self.Memory_idx] == li[i] and self.trigger_li[i]]
-        vary_mu_out = self.变爻索引(动爻索引=vary_mu)
+        vary_mu_out = self.变爻索引(动爻索引=vary_mu) if vary_mu else []  # 静卦的入动墓没有变爻，会报错
         vm_dict = {
             '入墓': rumu, '入墓化出': rumu_out, '入墓逢冲': self.冲用神(idx),
             '动墓': vary_mu, '动墓化出': vary_mu_out
@@ -1196,7 +1328,7 @@ class ConvertTextToCode:
         for obj in obj_lst:
             vary_info_dict[obj] = []  # initial obj to idx_lst's dict.
 
-        if init_idx:  # primary_idx:from 0 to 17. If you do not want all [],and First One must be written down ： ↓
+        if init_idx is not None:  # primary_idx:from 0 to 17. If you do not want all [],and First One must be written down ： ↓
             vary_info_dict[obj_lst[0]] = [init_idx]
 
         if len(idx_lst) != 1:  # 要求：独发，传入空列表，提前退出
@@ -1432,10 +1564,10 @@ class CellEditorWindow(QMainWindow):
 
         # 创建Grid布局
         grid_layout = QGridLayout()
-        buttons = ['<物象>', '<人物>', '<人事>', '<气运>', '<财运>', '<名次>', '<工作>', '<文书>', '<失物>', '<身体>',
-                   '<姓名>', '<化解>',
+        buttons = ['<人事>', '<身体>', '<文书>', '<失物>', '<子孙>', '<占妻>', '<财运>', '<占夫>', '<工作>',
+                   '<化解>', '<物象>', '<人物>', '<姓名>', '<气运>', '<名次>',
                    '<出行>', '【期】', '【事】', '【物】'
-                   ]  # 按钮列表
+                   ]  # 便捷编写
         buttons += text
         for i, button_text in enumerate(buttons):
             button = QPushButton(button_text)

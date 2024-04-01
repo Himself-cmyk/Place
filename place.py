@@ -786,7 +786,7 @@ class ALL_Widget(QWidget):
 
         self.text_box = CustomTextEdit()
         self.text_box.setFont(QFont('楷体', 12))  # 设置字体字号
-        self.text_box.setMinimumHeight(600)
+        self.text_box.setMinimumHeight(700)
 
         stdout_redirector = StdoutRedirector(self.text_box)
         sys.stdout = stdout_redirector

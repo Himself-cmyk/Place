@@ -3,11 +3,11 @@ import os
 import sqlite3
 import sys
 from constants import YONG_SHEN
-from PyQt5.QtCore import QObject, pyqtSignal, Qt, QTimer
-from PyQt5.QtGui import QColor, QPainter, QFont, QPalette, QPixmap
+from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtGui import QColor, QFont, QPalette, QPixmap
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, \
     QVBoxLayout, QHBoxLayout, QWidget, QScrollArea, QComboBox, QGroupBox, QGridLayout, QStyledItemDelegate, \
-    QStyleOptionViewItem, QHeaderView, QStyle, QTableView, QMessageBox, QTextEdit, QDialog, QInputDialog
+    QMessageBox, QTextEdit, QInputDialog, QRadioButton
 
 
 class ImageSwitcher(QWidget):
@@ -393,11 +393,20 @@ class Database(QMainWindow):
         全都为空，default format
         '''
 
+        def comb_s(head_s: str, middle_s: str, end_s: str):
+            if "*" in middle_s:
+                # 这是一个反转符号
+                middle_s = middle_s.replace('*', '')
+                head_s = head_s[-1] if "%" in head_s else head_s + "%"
+                end_s = end_s[1] if "%" in end_s else "%" + end_s
+            # 最一般的输出
+            return head_s + middle_s + end_s
+
         def generate_sql(head_s: str, middle_s: str, end_s: str):
             # 实现的目标：string = "("+" OR ".join([split_lst])+")"，无“/”则正常输出。
             # 示例结果：(gua LIKE '%name1%' OR gua LIKE '%name2%')
             if '/' in middle_s:
-                middle_lst = [head_s + n + end_s for n in middle_s.split('/') if n]
+                middle_lst = [comb_s(head_s, n, end_s) for n in middle_s.split('/') if n]
                 return "(" + " OR ".join(middle_lst) + ")"
             else:
                 return head_s + middle_s + end_s
@@ -531,13 +540,22 @@ class Database(QMainWindow):
         gid_str = ','.join(str(gid) for gid in gids)
 
         # 在查询中添加IN子句以过滤gid
-        query = f"{self.format} WHERE gid IN ({gid_str}) LIMIT {page_item} OFFSET {start_offset}"
+        # query = f"{self.format} WHERE gid IN ({gid_str}) LIMIT {page_item} OFFSET {start_offset}"
+        query = f"SELECT * FROM data WHERE gid IN ({gid_str}) LIMIT {page_item} OFFSET {start_offset}"
         cursor.execute(query)
         rows = cursor.fetchall()
+        if not rows:
+            return
+
+        if isinstance(rows[0][-1],int):
+            gid_col = -1
+        else:#elif isinstance(rows[0][-1],bool) and isinstance(rows[0][-2],int):
+            gid_col = -2
+
         new_rows = []
         for gid in gids:
             for row in rows:
-                if row[-1] != gid:
+                if row[gid_col] != gid:
                     continue
                 new_rows.append(row)
                 break
@@ -551,8 +569,7 @@ class Database(QMainWindow):
         self.table_widget.scrollToBottom()
 
     def filter_sub_window(self):
-        # 通过界面，搞出
-        self.filter = FilterDB(call_back=self.get_records_by_gids)
+        self.filter = FilterDB(call_back=self.get_records_by_gids, db_path=self.path)
         self.filter.show()
 
     # 下一页按钮点击事件
@@ -910,10 +927,11 @@ class ConfigEditor(QWidget):
 
 
 class FilterDB(QMainWindow):
-    def __init__(self, call_back=None):
+    def __init__(self, call_back=None, db_path=None):
         super(FilterDB, self).__init__()
 
         # 初始化布局
+        self.path = db_path
         self.main_layout = QVBoxLayout()
         self.grid_layout = QGridLayout()
         self.central_widget = QWidget()
@@ -935,7 +953,7 @@ class FilterDB(QMainWindow):
         self.db_radio_button2.toggled.connect(self.on_database_type_changed)
 
         # 创建Combobox
-        self.parse_methods = ['解析生肖', '加载特定主键', '方法C']
+        self.parse_methods = ['解析生肖', '加载特定主键', '按条文搜索']
         self.method_combobox = QComboBox()
         self.method_combobox.addItems(self.parse_methods)
         self.method_combobox.currentIndexChanged.connect(self.on_parse_method_changed)
@@ -974,20 +992,93 @@ class FilterDB(QMainWindow):
     def on_parse_method_changed(self, index):
         self.parse_method = self.parse_methods[index]
 
+    @staticmethod
+    def read_data(db_path:str, input_text:str):
+        def handle_data_process():
+            month = ZHI.index(yuel)
+            date = ZHI.index(ric)
+            day_gan = GAN.index(h)
+            gua_num = GUA_NAMES.index(gua)
+            biangua_num = 64 if biangua in '空白|无' else GUA_NAMES.index(biangua)
+            coinsNumb_lst = [int(i) for i in coinsNumber_list]
+            WuXing, SixMode = h_caculate(gua_num, day_gan)
+            ming_yao = yongshen = None
+            empty = content1.splitlines()[1][-3:-1]
+            gua_image_dic = {
+                'Time': [day_gan, month, date, None, None, None],
+                'Empty': empty,
+                'CoinsNumb': [gua_num, biangua_num, coinsNumb_lst],
+                'Other': [WuXing, SixMode, ming_yao, yongshen]
+            }
+            return gua_image_dic
+
+        from main_format import h_caculate
+        from model import AnalyModel
+        from place_addition import GUA_NAMES
+        from constants import GAN, ZHI
+        columns = ['title', 'yuel', 'h', 'ric', 'gua', 'biangua', 'coinsNumber_list','content1', 'gid']
+        qualified_gid_lst = []
+        # 连接到SQLite数据库
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        try:
+            # 执行查询，只选择指定的列
+            cursor.execute(f"SELECT {', '.join(columns)} FROM data")
+
+            # 获取所有记录
+            rows = cursor.fetchall()
+            for row in rows:
+                # 将每一条记录的值赋给对应的变量
+                (title, yuel, h, ric, gua, biangua, coinsNumber_list, content1, gid) = row
+                dic = handle_data_process()
+                judge_model = AnalyModel(dic['Time'], dic['Empty'], dic['CoinsNumb'], dic['Other'],simplify=True)
+                judge_result = judge_model.rapid_check(input_text)
+                if judge_result:
+                    qualified_gid_lst.append(gid)
+
+        except sqlite3.Error as e:
+            print(f"数据库错误： {e}")
+        finally:
+            # 关闭游标和连接
+            cursor.close()
+            conn.close()
+
+        return qualified_gid_lst
+
     def on_filter_clicked(self):
         self.textbox_text = self.textbox.toPlainText()
         # 在这里进行某些计算，使用self.database_type, self.parse_method, self.textbox_text作为参数
-        text = f"筛选条件：数据库类型 - {self.database_type}, 解析方法 - {self.parse_method}, 文本内容 - {self.textbox_text}"
-        self.textbox.append(text)
-        if self.database_type == '本数据库':
+        # text = f"筛选条件：数据库类型 - {self.database_type}, 解析方法 - {self.parse_method}, 文本内容 - {self.textbox_text}"
+        # self.textbox.append(text)
+        if self.parse_method == '按条文搜索':
+            # 获取当前数据库path，拉取所有的记录，判断输入框的条件，筛选出符合的
+            if any(s in self.textbox_text for s in '用元忌仇闲'):
+                print('含有特殊词汇，请重试')
+                return
+            gid_lst = self.read_data(self.path, self.textbox_text.strip())
+            self.call_back(gid_lst)
+
+        elif self.parse_method == '解析生肖' and self.database_type == '本数据库':
             try:
-                from test.private import parse_zodiac
+                from private import parse_zodiac
                 text, gid_lst = parse_zodiac(self.textbox_text, self.parse_method)
                 self.textbox.append(text)
                 self.call_back(gid_lst)
-            except Exception:
-                parse_zodiac = lambda *args: print(*arg)
+
+            except Exception as e:
+                print(e)
+                parse_zodiac = lambda *args: print(*args)
                 parse_zodiac(self.textbox_text, self.parse_method)
+        elif self.parse_method == '加载特定主键':
+            try:
+                if self.textbox_text[0] == '['  and self.textbox_text[-1] == ']':
+                    gid_lst = [int(i.strip()) for i in self.textbox_text[1:-1].split(',')]
+                else:
+                    gid_lst = [int(i.strip()) for i in self.textbox_text.split(' ')]
+                self.call_back(gid_lst)
+            except Exception:
+                print('不符合语法规则，请重试')
 
 
 if __name__ == "__main__":
